@@ -60,6 +60,8 @@ interface DataContextType {
 
   // Interações
   addInteracao: (data: Omit<Interacao, 'id' | 'ownerId' | 'createdAt'>) => Promise<void>;
+  updateInteracao: (id: string, data: Partial<Interacao>) => Promise<void>;
+  deleteInteracao: (id: string) => Promise<void>;
 
   // Tarefas
   addTarefa: (data: Omit<Tarefa, 'id' | 'ownerId' | 'createdAt'>) => Promise<void>;
@@ -217,6 +219,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
   }, [user]);
 
+  const updateInteracao = useCallback(async (id: string, data: Partial<Interacao>) => {
+    await updateDoc(doc(db, 'interacoes', id), data);
+  }, []);
+
+  const deleteInteracao = useCallback(async (id: string) => {
+    await deleteDoc(doc(db, 'interacoes', id));
+  }, []);
+
   // ─── Tarefas ───
   const addTarefa = useCallback(async (data: Omit<Tarefa, 'id' | 'ownerId' | 'createdAt'>) => {
     if (!user) throw new Error('Not authenticated');
@@ -256,7 +266,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       pacientes, atendimentos, interacoes, tarefas, loadingData, inatividadeSugerida,
       addPaciente, updatePaciente, deletePaciente,
       addAtendimento, updateAtendimento, deleteAtendimento,
-      addInteracao,
+      addInteracao, updateInteracao, deleteInteracao,
       addTarefa, concluirTarefa, deleteTarefa, updateTarefa,
     }}>
       {children}

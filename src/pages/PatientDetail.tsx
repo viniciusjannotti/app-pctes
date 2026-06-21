@@ -85,13 +85,15 @@ export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { pacientes, atendimentos, interacoes, tarefas, updatePaciente, concluirTarefa, deleteTarefa, deletePaciente, deleteAtendimento } = useData();
+  const { pacientes, atendimentos, interacoes, tarefas, updatePaciente, concluirTarefa, deleteTarefa, deletePaciente, deleteAtendimento, deleteInteracao } = useData();
   const [tab, setTab] = useState<'timeline' | 'mensagens'>('timeline');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAtendimentoModal, setShowAtendimentoModal] = useState(false);
   const [editingAtendimento, setEditingAtendimento] = useState<Atendimento | undefined>();
   const [showInteracaoModal, setShowInteracaoModal] = useState(false);
+  const [editingInteracao, setEditingInteracao] = useState<Interacao | undefined>();
   const [showTarefaModal, setShowTarefaModal] = useState(false);
+  const [editingTarefa, setEditingTarefa] = useState<Tarefa | undefined>();
 
   const paciente = pacientes.find(p => p.id === id);
   const pacAtendimentos = atendimentos.filter(a => a.pacienteId === id);
@@ -295,8 +297,8 @@ export default function PatientDetail() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {[
           { label: 'Atendimento', icon: Activity, action: () => { setEditingAtendimento(undefined); setShowAtendimentoModal(true); }, id: 'btn-quick-atendimento' },
-          { label: 'Interação', icon: MessageCircle, action: () => setShowInteracaoModal(true), id: 'btn-quick-interacao' },
-          { label: 'Tarefa', icon: Plus, action: () => setShowTarefaModal(true), id: 'btn-quick-tarefa' },
+          { label: 'Interação', icon: MessageCircle, action: () => { setEditingInteracao(undefined); setShowInteracaoModal(true); }, id: 'btn-quick-interacao' },
+          { label: 'Tarefa', icon: Plus, action: () => { setEditingTarefa(undefined); setShowTarefaModal(true); }, id: 'btn-quick-tarefa' },
         ].map(a => (
           <button key={a.id} id={a.id} className="btn btn-secondary btn-sm" onClick={a.action} style={{ gap: 5 }}>
             <a.icon size={14} /> {a.label}
@@ -405,9 +407,29 @@ export default function PatientDetail() {
                               <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#34d399' }}>
                                 Interação — {tipoInteracaoLabel[i.tipo]}
                               </span>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                                {item.date.toLocaleDateString('pt-BR')}
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                  {item.date.toLocaleDateString('pt-BR')}
+                                </span>
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                  <button
+                                    onClick={() => { setEditingInteracao(i); setShowInteracaoModal(true); }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+                                    title="Editar interação"
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (window.confirm('Excluir esta interação?')) deleteInteracao(i.id);
+                                    }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)' }}
+                                    title="Excluir interação"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                             <p style={{ fontSize: '0.85rem', color: 'var(--color-text)' }}>{i.observacao}</p>
                           </>
@@ -422,9 +444,29 @@ export default function PatientDetail() {
                               <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <CheckCircle2 size={12} color="#34d399" /> {tipoTarefaLabel[t.tipo]} — Concluída
                               </span>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                                {item.date.toLocaleDateString('pt-BR')}
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                  {item.date.toLocaleDateString('pt-BR')}
+                                </span>
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                  <button
+                                    onClick={() => { setEditingTarefa(t); setShowTarefaModal(true); }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+                                    title="Editar tarefa"
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (window.confirm('Excluir esta tarefa?')) deleteTarefa(t.id);
+                                    }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)' }}
+                                    title="Excluir tarefa"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                             <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>{t.titulo}</p>
                           </>
@@ -458,8 +500,8 @@ export default function PatientDetail() {
       {/* Modals */}
       {showEditModal && <PacienteModal onClose={() => setShowEditModal(false)} editingPaciente={paciente} />}
       {showAtendimentoModal && <AtendimentoModal onClose={() => { setShowAtendimentoModal(false); setEditingAtendimento(undefined); }} preSelectedPacienteId={id} editingAtendimento={editingAtendimento} />}
-      {showInteracaoModal && <InteracaoModal onClose={() => setShowInteracaoModal(false)} preSelectedPacienteId={id} />}
-      {showTarefaModal && <TarefaModal onClose={() => setShowTarefaModal(false)} preSelectedPacienteId={id} />}
+      {showInteracaoModal && <InteracaoModal onClose={() => { setShowInteracaoModal(false); setEditingInteracao(undefined); }} preSelectedPacienteId={id} editingInteracao={editingInteracao} />}
+      {showTarefaModal && <TarefaModal onClose={() => { setShowTarefaModal(false); setEditingTarefa(undefined); }} preSelectedPacienteId={id} editingTarefa={editingTarefa} />}
     </div>
   );
 }
