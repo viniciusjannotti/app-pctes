@@ -85,10 +85,11 @@ export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { pacientes, atendimentos, interacoes, tarefas, updatePaciente, concluirTarefa, deleteTarefa } = useData();
+  const { pacientes, atendimentos, interacoes, tarefas, updatePaciente, concluirTarefa, deleteTarefa, deletePaciente, deleteAtendimento } = useData();
   const [tab, setTab] = useState<'timeline' | 'mensagens'>('timeline');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAtendimentoModal, setShowAtendimentoModal] = useState(false);
+  const [editingAtendimento, setEditingAtendimento] = useState<Atendimento | undefined>();
   const [showInteracaoModal, setShowInteracaoModal] = useState(false);
   const [showTarefaModal, setShowTarefaModal] = useState(false);
 
@@ -139,6 +140,13 @@ export default function PatientDetail() {
     await updatePaciente(paciente.id, { crise: novaCrise });
     if (novaCrise && user) {
       await criarTarefaCrise(user.uid, paciente.id, paciente.nomeExibicao);
+    }
+  };
+
+  const handleDeletePaciente = async () => {
+    if (window.confirm('Tem certeza que deseja excluir este paciente e todos os seus dados? Esta ação não pode ser desfeita.')) {
+      await deletePaciente(paciente.id);
+      navigate('/pacientes');
     }
   };
 
@@ -220,6 +228,14 @@ export default function PatientDetail() {
             >
               <Edit2 size={15} />
             </button>
+            <button
+              className="btn btn-ghost btn-icon btn-sm"
+              onClick={handleDeletePaciente}
+              id="btn-excluir-paciente"
+              style={{ color: 'var(--color-danger)' }}
+            >
+              <Trash2 size={15} />
+            </button>
           </div>
         </div>
 
@@ -278,7 +294,7 @@ export default function PatientDetail() {
       {/* Quick Actions */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {[
-          { label: 'Atendimento', icon: Activity, action: () => setShowAtendimentoModal(true), id: 'btn-quick-atendimento' },
+          { label: 'Atendimento', icon: Activity, action: () => { setEditingAtendimento(undefined); setShowAtendimentoModal(true); }, id: 'btn-quick-atendimento' },
           { label: 'Interação', icon: MessageCircle, action: () => setShowInteracaoModal(true), id: 'btn-quick-interacao' },
           { label: 'Tarefa', icon: Plus, action: () => setShowTarefaModal(true), id: 'btn-quick-tarefa' },
         ].map(a => (
@@ -346,9 +362,29 @@ export default function PatientDetail() {
                               <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#818cf8' }}>
                                 Consulta — {tipoAtendLabel[a.tipo]}
                               </span>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                                {item.date.toLocaleDateString('pt-BR')}
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                  {item.date.toLocaleDateString('pt-BR')}
+                                </span>
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                  <button
+                                    onClick={() => { setEditingAtendimento(a); setShowAtendimentoModal(true); }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+                                    title="Editar atendimento"
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (window.confirm('Excluir este atendimento?')) deleteAtendimento(a.id);
+                                    }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)' }}
+                                    title="Excluir atendimento"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: '0.82rem', color: 'var(--color-text-dim)' }}>
                               <span>💰 R$ {a.valorRecebido.toFixed(2)} recebidos</span>
@@ -421,7 +457,7 @@ export default function PatientDetail() {
 
       {/* Modals */}
       {showEditModal && <PacienteModal onClose={() => setShowEditModal(false)} editingPaciente={paciente} />}
-      {showAtendimentoModal && <AtendimentoModal onClose={() => setShowAtendimentoModal(false)} preSelectedPacienteId={id} />}
+      {showAtendimentoModal && <AtendimentoModal onClose={() => { setShowAtendimentoModal(false); setEditingAtendimento(undefined); }} preSelectedPacienteId={id} editingAtendimento={editingAtendimento} />}
       {showInteracaoModal && <InteracaoModal onClose={() => setShowInteracaoModal(false)} preSelectedPacienteId={id} />}
       {showTarefaModal && <TarefaModal onClose={() => setShowTarefaModal(false)} preSelectedPacienteId={id} />}
     </div>

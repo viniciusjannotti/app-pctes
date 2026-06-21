@@ -55,6 +55,8 @@ interface DataContextType {
 
   // Atendimentos
   addAtendimento: (data: Omit<Atendimento, 'id' | 'ownerId' | 'createdAt'>) => Promise<void>;
+  updateAtendimento: (id: string, data: Partial<Atendimento>) => Promise<void>;
+  deleteAtendimento: (id: string) => Promise<void>;
 
   // Interações
   addInteracao: (data: Omit<Interacao, 'id' | 'ownerId' | 'createdAt'>) => Promise<void>;
@@ -197,6 +199,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, pacientes, updatePaciente]);
 
+  const updateAtendimento = useCallback(async (id: string, data: Partial<Atendimento>) => {
+    await updateDoc(doc(db, 'atendimentos', id), data);
+  }, []);
+
+  const deleteAtendimento = useCallback(async (id: string) => {
+    await deleteDoc(doc(db, 'atendimentos', id));
+  }, []);
+
   // ─── Interações ───
   const addInteracao = useCallback(async (data: Omit<Interacao, 'id' | 'ownerId' | 'createdAt'>) => {
     if (!user) throw new Error('Not authenticated');
@@ -245,7 +255,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     <DataContext.Provider value={{
       pacientes, atendimentos, interacoes, tarefas, loadingData, inatividadeSugerida,
       addPaciente, updatePaciente, deletePaciente,
-      addAtendimento,
+      addAtendimento, updateAtendimento, deleteAtendimento,
       addInteracao,
       addTarefa, concluirTarefa, deleteTarefa, updateTarefa,
     }}>
