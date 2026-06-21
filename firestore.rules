@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Função auxiliar: verifica se o usuário está autenticado
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Função auxiliar: verifica se o documento pertence ao usuário autenticado
+    function isOwner(data) {
+      return isAuth() && request.auth.uid == data.ownerId;
+    }
+
+    // ─── Usuários ───────────────────────────────────────────────────
+    // Cada usuário só pode ler/escrever o próprio perfil
+    match /users/{userId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+
+    // ─── Pacientes ───────────────────────────────────────────────────
+    match /pacientes/{docId} {
+      allow read:   if isAuth() && resource.data.ownerId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isOwner(resource.data);
+      allow delete: if isOwner(resource.data);
+    }
+
+    // ─── Atendimentos ───────────────────────────────────────────────
+    match /atendimentos/{docId} {
+      allow read:   if isAuth() && resource.data.ownerId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isOwner(resource.data);
+      allow delete: if isOwner(resource.data);
+    }
+
+    // ─── Interações ─────────────────────────────────────────────────
+    match /interacoes/{docId} {
+      allow read:   if isAuth() && resource.data.ownerId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isOwner(resource.data);
+      allow delete: if isOwner(resource.data);
+    }
+
+    // ─── Tarefas ────────────────────────────────────────────────────
+    match /tarefas/{docId} {
+      allow read:   if isAuth() && resource.data.ownerId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isOwner(resource.data);
+      allow delete: if isOwner(resource.data);
+    }
+  }
+}
