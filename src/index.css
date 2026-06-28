@@ -386,3 +386,36 @@ body {
   margin: 0 auto;
   padding: 0 16px;
 }
+
+/* ─── Stat card clickable ─── */
+.stat-card-clickable {
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Inter', sans-serif;
+  color: var(--color-text);
+}
+.stat-card-clickable:hover {
+  border-color: var(--color-border-hover);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.45);
+}
+.stat-card-clickable:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.stat-card-hint {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin-top: 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  letter-spacing: 0.02em;
+}
+.stat-card-clickable:hover .stat-card-hint {
+  opacity: 1;
+}
+
+/* ─── Calendário ─── */
+.calendario-container {
+  margin-bottom: 20px;
+}

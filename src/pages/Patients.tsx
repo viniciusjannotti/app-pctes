@@ -11,6 +11,15 @@ const statusBadge: Record<PacienteStatus, { label: string; cls: string }> = {
   alta:    { label: 'Alta',    cls: 'badge-alta-pac' },
 };
 
+const FAIXAS_DE_PRECO = [
+  { label: 'Gratuito / Até R$ 50', match: (v: number) => v <= 50 },
+  { label: 'R$ 51 a R$ 100', match: (v: number) => v > 50 && v <= 100 },
+  { label: 'R$ 101 a R$ 150', match: (v: number) => v > 100 && v <= 150 },
+  { label: 'R$ 151 a R$ 200', match: (v: number) => v > 150 && v <= 200 },
+  { label: 'R$ 201 a R$ 250', match: (v: number) => v > 200 && v <= 250 },
+  { label: 'Acima de R$ 250', match: (v: number) => v > 250 },
+];
+
 function PacienteCard({ paciente }: { paciente: Paciente }) {
   const initials = paciente.nomeExibicao
     .split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
@@ -70,6 +79,11 @@ function PacienteCard({ paciente }: { paciente: Paciente }) {
             <DollarSign size={12} color="var(--color-success)" />
             <span style={{ fontSize: '0.8rem', color: 'var(--color-text-dim)' }}>
               R$ {paciente.valorAtual.toFixed(2)}
+              {paciente.ultimoReajuste && (
+                <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginLeft: 6 }}>
+                  (Reajuste: {new Date(paciente.ultimoReajuste).toLocaleDateString('pt-BR')})
+                </span>
+              )}
               {paciente.necessitaNotaFiscal && <span style={{ color: 'var(--color-text-muted)', marginLeft: 6 }}>• NF</span>}
             </span>
           </div>
@@ -82,14 +96,14 @@ function PacienteCard({ paciente }: { paciente: Paciente }) {
 export default function Patients() {
   const { pacientes, loadingData } = useData();
   const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<PacienteStatus | 'todos'>('todos');
+  const [filterStatus, setFilterStatus] = useState<PacienteStatus | 'todos' | 'valores'>('todos');
   const [showModal, setShowModal] = useState(false);
 
   const filtered = useMemo(() => {
     return pacientes.filter(p => {
       const matchSearch = p.nomeExibicao.toLowerCase().includes(search.toLowerCase()) ||
         p.telefone?.includes(search);
-      const matchStatus = filterStatus === 'todos' || p.status === filterStatus;
+      const matchStatus = filterStatus === 'todos' || filterStatus === 'valores' || p.status === filterStatus;
       return matchSearch && matchStatus;
     });
   }, [pacientes, search, filterStatus]);
@@ -154,21 +168,22 @@ export default function Patients() {
             id="input-buscar-pacientes"
           />
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {(['todos', 'ativo', 'inativo', 'alta'] as const).map(s => (
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
+          {(['todos', 'ativo', 'inativo', 'alta', 'valores'] as const).map(s => (
             <button
               key={s}
               className={`btn btn-sm ${filterStatus === s ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setFilterStatus(s)}
               id={`btn-filtro-${s}`}
+              style={{ whiteSpace: 'nowrap' }}
             >
-              {s === 'todos' ? 'Todos' : s.charAt(0).toUpperCase() + s.slice(1)}
+              {s === 'todos' ? 'Todos' : s === 'valores' ? 'Faixas de Valores' : s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Grid de pacientes */}
+      {/* Grid de pacientes ou Kanban de Valores */}
       {filtered.length === 0 ? (
         <div className="empty-state">
           <Users size={48} />
@@ -181,6 +196,49 @@ export default function Patients() {
               <Plus size={16} /> Cadastrar Paciente
             </button>
           )}
+        </div>
+      ) : filterStatus === 'valores' ? (
+        <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 16 }}>
+          {FAIXAS_DE_PRECO.map(faixa => {
+            const pacientesDaFaixa = filtered
+              .filter(p => faixa.match(p.valorAtual))
+              .sort((a, b) => {
+                // Ordenar pelo reajuste mais antigo primeiro (null/undefined são considerados mais antigos)
+                const dateA = a.ultimoReajuste ? new Date(a.ultimoReajuste).getTime() : 0;
+                const dateB = b.ultimoReajuste ? new Date(b.ultimoReajuste).getTime() : 0;
+                return dateA - dateB;
+              });
+
+            if (pacientesDaFaixa.length === 0) return null;
+
+            return (
+              <div key={faixa.label} style={{
+                minWidth: 300,
+                width: 300,
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 12,
+                padding: 16,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+                flexShrink: 0
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-primary)' }}>
+                    {faixa.label}
+                  </h3>
+                  <span className="badge badge-media">{pacientesDaFaixa.length}</span>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {pacientesDaFaixa.map(p => (
+                    <PacienteCard key={p.id} paciente={p} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div style={{

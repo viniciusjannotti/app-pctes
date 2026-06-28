@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  CheckCircle2, Circle, AlertCircle, TrendingUp, Users, DollarSign,
+  CheckCircle2, Circle, AlertCircle, Users, DollarSign,
   MessageSquare, Plus, ChevronRight, Bell, X, Zap,
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
@@ -8,6 +8,11 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { Tarefa, TarefaPrioridade } from '../types';
 import TarefaModal from '../components/Modals/TarefaModal';
+import ReceitaMesModal from '../components/Modals/ReceitaMesModal';
+import PacientesAtivosModal from '../components/Modals/PacientesAtivosModal';
+import CobrancasPendentesModal from '../components/Modals/CobrancasPendentesModal';
+import DemandasAbertasModal from '../components/Modals/DemandasAbertasModal';
+import CalendarioConsultas from '../components/CalendarioConsultas';
 
 const prioridadeOrder: Record<TarefaPrioridade, number> = {
   critica: 4, alta: 3, media: 2, baixa: 1,
@@ -104,9 +109,10 @@ function TaskRow({ tarefa, pacienteNome, onConcluir }: {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { pacientes, atendimentos, tarefas, interacoes, concluirTarefa, updatePaciente, inatividadeSugerida } = useData();
+  const { pacientes, atendimentos, tarefas, concluirTarefa, updatePaciente, inatividadeSugerida } = useData();
   const [showTarefaModal, setShowTarefaModal] = useState(false);
   const [dismissedInatividade, setDismissedInatividade] = useState<string[]>([]);
+  const [activeModal, setActiveModal] = useState<'receita' | 'pacientes' | 'cobrancas' | 'demandas' | null>(null);
 
   const hoje = new Date();
   hoje.setHours(23, 59, 59, 999);
@@ -126,7 +132,6 @@ export default function Dashboard() {
     [tarefas]
   );
 
-  // Indicadores do mês
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
   const receitaMes = useMemo(() =>
     atendimentos
@@ -156,7 +161,6 @@ export default function Dashboard() {
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto' }}>
-      {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
           {hoje.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -166,7 +170,6 @@ export default function Dashboard() {
         </h1>
       </div>
 
-      {/* Sugestões de inatividade */}
       {sugestoesInatividade.length > 0 && (
         <div style={{
           background: 'rgba(251,191,36,0.08)',
@@ -210,31 +213,44 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Indicadores */}
+      {/* Indicadores — Clicáveis */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 28 }}>
         {[
           {
+            id: 'receita' as const,
             label: 'Receita do Mês',
             value: `R$ ${receitaMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
             icon: DollarSign, color: '#34d399', bg: 'rgba(52,211,153,0.08)',
+            hint: 'Ver análise comparativa →',
           },
           {
+            id: 'pacientes' as const,
             label: 'Pacientes Ativos',
             value: pacientesAtivos.toString(),
             icon: Users, color: '#818cf8', bg: 'rgba(99,102,241,0.08)',
+            hint: 'Ver carteira detalhada →',
           },
           {
+            id: 'cobrancas' as const,
             label: 'Cobranças Pendentes',
             value: `R$ ${cobrancasPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
             icon: AlertCircle, color: '#fbbf24', bg: 'rgba(251,191,36,0.08)',
+            hint: 'Ver pendências por paciente →',
           },
           {
+            id: 'demandas' as const,
             label: 'Demandas Abertas',
             value: demandasAbertas.toString(),
             icon: MessageSquare, color: '#f87171', bg: 'rgba(248,113,113,0.08)',
+            hint: 'Ver e acessar demandas →',
           },
-        ].map((card, i) => (
-          <div key={i} className="stat-card">
+        ].map((card) => (
+          <button
+            key={card.id}
+            className="stat-card stat-card-clickable"
+            onClick={() => setActiveModal(card.id)}
+            id={`btn-card-${card.id}`}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <div style={{ width: 32, height: 32, borderRadius: 8, background: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <card.icon size={16} color={card.color} />
@@ -244,7 +260,8 @@ export default function Dashboard() {
               </span>
             </div>
             <p style={{ fontSize: '1.4rem', fontWeight: 700, color: card.color }}>{card.value}</p>
-          </div>
+            <p className="stat-card-hint">{card.hint}</p>
+          </button>
         ))}
       </div>
 
@@ -334,6 +351,11 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Calendário de Consultas */}
+      <div style={{ marginBottom: 20 }}>
+        <CalendarioConsultas />
+      </div>
+
       {/* Link para pacientes */}
       <Link to="/pacientes" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -356,7 +378,12 @@ export default function Dashboard() {
         <ChevronRight size={18} color="var(--color-text-muted)" />
       </Link>
 
+      {/* Modais */}
       {showTarefaModal && <TarefaModal onClose={() => setShowTarefaModal(false)} />}
+      {activeModal === 'receita' && <ReceitaMesModal onClose={() => setActiveModal(null)} />}
+      {activeModal === 'pacientes' && <PacientesAtivosModal onClose={() => setActiveModal(null)} />}
+      {activeModal === 'cobrancas' && <CobrancasPendentesModal onClose={() => setActiveModal(null)} />}
+      {activeModal === 'demandas' && <DemandasAbertasModal onClose={() => setActiveModal(null)} />}
     </div>
   );
 }
