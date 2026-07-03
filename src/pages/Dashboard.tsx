@@ -265,6 +265,11 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* Calendário de Consultas */}
+      <div style={{ marginBottom: 20 }}>
+        <CalendarioConsultas />
+      </div>
+
       {/* Minha Atenção Hoje */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{
@@ -350,11 +355,6 @@ export default function Dashboard() {
           )}
         </div>
       )}
-
-      {/* Calendário de Consultas */}
-      <div style={{ marginBottom: 20 }}>
-        <CalendarioConsultas />
-      </div>
 
       {/* Link para pacientes */}
       <Link to="/pacientes" style={{
