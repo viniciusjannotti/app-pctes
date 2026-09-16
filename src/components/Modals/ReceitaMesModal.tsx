@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { X, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Line, ComposedChart, Area,
+  Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Line, ComposedChart, Cell,
 } from 'recharts';
 import { useData } from '../../context/DataContext';
 
@@ -48,28 +48,33 @@ export default function ReceitaMesModal({ onClose }: Props) {
     for (let i = 5; i >= 0; i--) {
       const data = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
       const fimMes = new Date(data.getFullYear(), data.getMonth() + 1, 0, 23, 59, 59);
-      const recebido = atendimentos
-        .filter(a => {
-          const d = new Date(a.dataAtendimento);
-          return d >= data && d <= fimMes;
-        })
+      const doMes = atendimentos.filter(a => {
+        const d = new Date(a.dataAtendimento);
+        return d >= data && d <= fimMes;
+      });
+      const recebido = doMes.reduce((s, a) => s + (a.valorRecebido || 0), 0);
+      const pendente = doMes.reduce((s, a) => s + (a.valorPendente || 0), 0);
+      const consultas = doMes
+        .filter(a => a.tipo === 'consulta')
         .reduce((s, a) => s + (a.valorRecebido || 0), 0);
-      const pendente = atendimentos
-        .filter(a => {
-          const d = new Date(a.dataAtendimento);
-          return d >= data && d <= fimMes;
-        })
-        .reduce((s, a) => s + (a.valorPendente || 0), 0);
+      const retornos = doMes
+        .filter(a => a.tipo === 'retornoBreve')
+        .reduce((s, a) => s + (a.valorRecebido || 0), 0);
       resultado.push({
         mes: MESES[data.getMonth()],
         recebido,
         pendente,
         total: recebido + pendente,
+        consultas,
+        retornos,
         isCurrent: i === 0,
       });
     }
     return resultado;
   }, [atendimentos]);
+
+  const [mesSelecionadoIdx, setMesSelecionadoIdx] = useState(dadosMeses.length - 1);
+  const mesSelecionado = dadosMeses[mesSelecionadoIdx] || dadosMeses[dadosMeses.length - 1];
 
   const mesAtual = dadosMeses[dadosMeses.length - 1];
   const mesAnterior = dadosMeses[dadosMeses.length - 2];
@@ -83,17 +88,8 @@ export default function ReceitaMesModal({ onClose }: Props) {
   const TrendIcon = variacao > 0 ? TrendingUp : variacao < 0 ? TrendingDown : Minus;
   const trendColor = variacao > 0 ? '#34d399' : variacao < 0 ? '#f87171' : '#94a3b8';
 
-  // Por tipo no mês atual
-  const inicioMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  const porTipo = useMemo(() => {
-    const consultas = atendimentos.filter(a =>
-      new Date(a.dataAtendimento) >= inicioMesAtual && a.tipo === 'consulta'
-    ).reduce((s, a) => s + (a.valorRecebido || 0), 0);
-    const retornos = atendimentos.filter(a =>
-      new Date(a.dataAtendimento) >= inicioMesAtual && a.tipo === 'retornoBreve'
-    ).reduce((s, a) => s + (a.valorRecebido || 0), 0);
-    return { consultas, retornos };
-  }, [atendimentos]);
+  // Por tipo no mês selecionado (padrão: mês atual)
+  const porTipo = { consultas: mesSelecionado.consultas, retornos: mesSelecionado.retornos };
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -145,7 +141,7 @@ export default function ReceitaMesModal({ onClose }: Props) {
         {/* Gráfico */}
         <div style={{ marginBottom: 20 }}>
           <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: 10, fontWeight: 500 }}>
-            EVOLUÇÃO MENSAL — ÚLTIMOS 6 MESES
+            EVOLUÇÃO MENSAL — ÚLTIMOS 6 MESES <span style={{ opacity: 0.7, fontWeight: 400 }}>(clique numa coluna para ver o breakdown)</span>
           </p>
           <ResponsiveContainer width="100%" height={220}>
             <ComposedChart data={dadosMeses} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
@@ -164,8 +160,38 @@ export default function ReceitaMesModal({ onClose }: Props) {
                 width={50}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="recebido" name="Recebido" fill="#34d399" radius={[6, 6, 0, 0]} opacity={0.85} />
-              <Bar dataKey="pendente" name="Pendente" fill="#fbbf24" radius={[6, 6, 0, 0]} opacity={0.6} />
+              <Bar
+                dataKey="recebido"
+                name="Recebido"
+                radius={[6, 6, 0, 0]}
+                cursor="pointer"
+                onClick={(_, index) => setMesSelecionadoIdx(index)}
+              >
+                {dadosMeses.map((_, index) => (
+                  <Cell
+                    key={`recebido-${index}`}
+                    fill="#34d399"
+                    opacity={index === mesSelecionadoIdx ? 1 : 0.55}
+                    stroke={index === mesSelecionadoIdx ? '#34d399' : 'none'}
+                    strokeWidth={index === mesSelecionadoIdx ? 2 : 0}
+                  />
+                ))}
+              </Bar>
+              <Bar
+                dataKey="pendente"
+                name="Pendente"
+                radius={[6, 6, 0, 0]}
+                cursor="pointer"
+                onClick={(_, index) => setMesSelecionadoIdx(index)}
+              >
+                {dadosMeses.map((_, index) => (
+                  <Cell
+                    key={`pendente-${index}`}
+                    fill="#fbbf24"
+                    opacity={index === mesSelecionadoIdx ? 0.8 : 0.4}
+                  />
+                ))}
+              </Bar>
               <Line
                 type="monotone"
                 dataKey="recebido"
@@ -179,10 +205,13 @@ export default function ReceitaMesModal({ onClose }: Props) {
           </ResponsiveContainer>
         </div>
 
-        {/* Breakdown por tipo no mês atual */}
+        {/* Breakdown por tipo no mês selecionado */}
         <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 16 }}>
           <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: 12, fontWeight: 500 }}>
             BREAKDOWN DO MÊS — POR TIPO
+            <span style={{ color: mesSelecionadoIdx === dadosMeses.length - 1 ? 'var(--color-text-muted)' : '#818cf8', fontWeight: 700 }}>
+              {' '}({mesSelecionado.mes}{mesSelecionadoIdx !== dadosMeses.length - 1 ? ' — selecionado' : ' — atual'})
+            </span>
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {[
