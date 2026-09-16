@@ -277,50 +277,72 @@ export default function Patients() {
             </button>
           )}
         </div>
-      ) : faixaFiltros.length > 0 ? (
-        <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 16 }}>
-          {FAIXAS_DE_PRECO.filter(f => faixaFiltros.includes(f.key)).map(faixa => {
-            const pacientesDaFaixa = filtered
+      ) : faixaFiltros.length > 0 ? (() => {
+        const faixasComPacientes = FAIXAS_DE_PRECO
+          .filter(f => faixaFiltros.includes(f.key))
+          .map(faixa => ({
+            faixa,
+            pacientesDaFaixa: filtered
               .filter(p => faixa.match(p.valorAtual))
               .sort((a, b) => {
                 // Ordenar pelo reajuste mais antigo primeiro (null/undefined são considerados mais antigos)
                 const dateA = a.ultimoReajuste ? new Date(a.ultimoReajuste).getTime() : 0;
                 const dateB = b.ultimoReajuste ? new Date(b.ultimoReajuste).getTime() : 0;
                 return dateA - dateB;
-              });
+              }),
+          }))
+          .filter(g => g.pacientesDaFaixa.length > 0);
 
-            if (pacientesDaFaixa.length === 0) return null;
+        // Distribui um espaço equivalente a 4 colunas entre as faixas selecionadas
+        // (1 faixa ocupa as 4 colunas, 2 faixas ocupam 2 colunas cada, etc.)
+        const numGrupos = faixasComPacientes.length;
+        const totalColunas = Math.max(4, numGrupos);
+        const spanBase = Math.floor(totalColunas / numGrupos);
+        const spanExtra = totalColunas % numGrupos;
 
-            return (
-              <div key={faixa.label} style={{
-                minWidth: 300,
-                width: 300,
-                background: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 12,
-                padding: 16,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 12,
-                flexShrink: 0
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-primary)' }}>
-                    {faixa.label}
-                  </h3>
-                  <span className="badge badge-media">{pacientesDaFaixa.length}</span>
-                </div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {pacientesDaFaixa.map(p => (
-                    <PacienteCard key={p.id} paciente={p} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
+        return (
+          <div style={{ overflowX: 'auto', paddingBottom: 16 }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${totalColunas}, minmax(220px, 1fr))`,
+              gap: 16,
+            }}>
+              {faixasComPacientes.map(({ faixa, pacientesDaFaixa }, i) => {
+                const span = spanBase + (i < spanExtra ? 1 : 0);
+                return (
+                  <div key={faixa.key} style={{
+                    gridColumn: `span ${span}`,
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 12,
+                    padding: 16,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-primary)' }}>
+                        {faixa.label}
+                      </h3>
+                      <span className="badge badge-media">{pacientesDaFaixa.length}</span>
+                    </div>
+
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(${span}, minmax(200px, 1fr))`,
+                      gap: 10,
+                    }}>
+                      {pacientesDaFaixa.map(p => (
+                        <PacienteCard key={p.id} paciente={p} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })() : (
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
