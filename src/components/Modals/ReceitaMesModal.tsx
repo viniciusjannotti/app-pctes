@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { X, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Line, ComposedChart, Cell,
 } from 'recharts';
 import { useData } from '../../context/DataContext';
+import { AtendimentoTipo } from '../../types';
 
 interface Props {
   onClose: () => void;
@@ -39,7 +40,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function ReceitaMesModal({ onClose }: Props) {
-  const { atendimentos } = useData();
+  const { atendimentos, pacientes } = useData();
 
   const hoje = new Date();
 
@@ -62,6 +63,8 @@ export default function ReceitaMesModal({ onClose }: Props) {
         .reduce((s, a) => s + (a.valorRecebido || 0), 0);
       resultado.push({
         mes: MESES[data.getMonth()],
+        inicio: data,
+        fim: fimMes,
         recebido,
         pendente,
         total: recebido + pendente,
@@ -75,6 +78,24 @@ export default function ReceitaMesModal({ onClose }: Props) {
 
   const [mesSelecionadoIdx, setMesSelecionadoIdx] = useState(dadosMeses.length - 1);
   const mesSelecionado = dadosMeses[mesSelecionadoIdx] || dadosMeses[dadosMeses.length - 1];
+
+  const [tipoExpandido, setTipoExpandido] = useState<AtendimentoTipo | null>(null);
+
+  const pacientesDoTipo = useMemo(() => {
+    if (!tipoExpandido) return [];
+    return atendimentos
+      .filter(a => {
+        const d = new Date(a.dataAtendimento);
+        return d >= mesSelecionado.inicio && d <= mesSelecionado.fim && a.tipo === tipoExpandido;
+      })
+      .map(a => ({
+        id: a.id,
+        nome: pacientes.find(p => p.id === a.pacienteId)?.nomeExibicao || 'Paciente removido',
+        data: new Date(a.dataAtendimento),
+        valor: a.valorRecebido || 0,
+      }))
+      .sort((a, b) => a.data.getTime() - b.data.getTime());
+  }, [tipoExpandido, mesSelecionado, atendimentos, pacientes]);
 
   const mesAtual = dadosMeses[dadosMeses.length - 1];
   const mesAnterior = dadosMeses[dadosMeses.length - 2];
@@ -215,26 +236,75 @@ export default function ReceitaMesModal({ onClose }: Props) {
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {[
-              { label: 'Consultas', value: porTipo.consultas, color: '#34d399' },
-              { label: 'Retornos', value: porTipo.retornos, color: '#818cf8' },
-            ].map(item => (
-              <div key={item.label} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 14px',
-                background: 'var(--color-surface-2)',
-                borderRadius: 10,
-                border: '1px solid var(--color-border)',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 3, background: item.color }} />
-                  <span style={{ fontSize: '0.85rem', color: 'var(--color-text-dim)' }}>{item.label}</span>
-                </div>
-                <span style={{ fontWeight: 700, color: item.color, fontSize: '0.95rem' }}>
-                  {formatBRL(item.value)}
-                </span>
-              </div>
-            ))}
+              { tipo: 'consulta' as AtendimentoTipo, label: 'Consultas', value: porTipo.consultas, color: '#34d399' },
+              { tipo: 'retornoBreve' as AtendimentoTipo, label: 'Retornos', value: porTipo.retornos, color: '#818cf8' },
+            ].map(item => {
+              const expandido = tipoExpandido === item.tipo;
+              return (
+                <button
+                  key={item.label}
+                  onClick={() => setTipoExpandido(expandido ? null : item.tipo)}
+                  id={`btn-breakdown-${item.tipo}`}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 14px',
+                    background: 'var(--color-surface-2)',
+                    borderRadius: 10,
+                    border: `1px solid ${expandido ? item.color : 'var(--color-border)'}`,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    width: '100%',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 3, background: item.color }} />
+                    <span style={{ fontSize: '0.85rem', color: 'var(--color-text-dim)' }}>{item.label}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontWeight: 700, color: item.color, fontSize: '0.95rem' }}>
+                      {formatBRL(item.value)}
+                    </span>
+                    {expandido ? <ChevronUp size={14} color={item.color} /> : <ChevronDown size={14} color="var(--color-text-muted)" />}
+                  </div>
+                </button>
+              );
+            })}
           </div>
+
+          {tipoExpandido && (
+            <div style={{ marginTop: 12 }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: 8, fontWeight: 500 }}>
+                {tipoExpandido === 'consulta' ? 'CONSULTAS' : 'RETORNOS'} DE {mesSelecionado.mes.toUpperCase()} — {pacientesDoTipo.length} atendimento{pacientesDoTipo.length !== 1 ? 's' : ''}
+              </p>
+              {pacientesDoTipo.length === 0 ? (
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', padding: '10px 0' }}>
+                  Nenhum atendimento neste mês.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {pacientesDoTipo.map(p => (
+                    <div key={p.id} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '8px 14px',
+                      background: 'var(--color-surface)',
+                      borderRadius: 8,
+                      border: '1px solid var(--color-border)',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--color-text)', fontWeight: 500 }}>{p.nome}</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                          {p.data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                        </span>
+                      </div>
+                      <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--color-text)' }}>
+                        {formatBRL(p.valor)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
