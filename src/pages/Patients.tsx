@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Users, Phone, DollarSign, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Users, Phone, DollarSign, AlertTriangle, SlidersHorizontal, X as XIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Paciente, PacienteStatus } from '../types';
@@ -12,17 +12,32 @@ const statusBadge: Record<PacienteStatus, { label: string; cls: string }> = {
 };
 
 const FAIXAS_DE_PRECO = [
-  { label: 'Gratuito / Até R$ 50', match: (v: number) => v <= 50 },
-  { label: 'R$ 51 a R$ 100', match: (v: number) => v > 50 && v <= 100 },
-  { label: 'R$ 101 a R$ 150', match: (v: number) => v > 100 && v <= 150 },
-  { label: 'R$ 151 a R$ 200', match: (v: number) => v > 150 && v <= 200 },
-  { label: 'R$ 201 a R$ 250', match: (v: number) => v > 200 && v <= 250 },
-  { label: 'Acima de R$ 250', match: (v: number) => v > 250 },
+  { key: 'cortesia', label: 'Cortesia (R$ 0 a R$ 99)', match: (v: number) => v >= 0 && v <= 99 },
+  { key: '100-199', label: 'R$ 100 a R$ 199', match: (v: number) => v >= 100 && v <= 199 },
+  { key: '200-299', label: 'R$ 200 a R$ 299', match: (v: number) => v >= 200 && v <= 299 },
+  { key: '300-399', label: 'R$ 300 a R$ 399', match: (v: number) => v >= 300 && v <= 399 },
+  { key: '400-499', label: 'R$ 400 a R$ 499', match: (v: number) => v >= 400 && v <= 499 },
+  { key: '500+', label: 'R$ 500 +', match: (v: number) => v >= 500 },
 ];
+
+const COR_FAIXA_BAIXA = '#B8A1FF'; // lavanda — faixas abaixo de R$ 300
+const COR_FAIXA_ALTA = '#F2C14E'; // dourado — faixas de R$ 300 em diante
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function getCorFaixa(valor: number): string {
+  return valor >= 300 ? COR_FAIXA_ALTA : COR_FAIXA_BAIXA;
+}
 
 function PacienteCard({ paciente }: { paciente: Paciente }) {
   const initials = paciente.nomeExibicao
     .split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+  const corFaixa = getCorFaixa(paciente.valorAtual);
 
   return (
     <Link
@@ -43,11 +58,11 @@ function PacienteCard({ paciente }: { paciente: Paciente }) {
             width: 44, height: 44, borderRadius: 12, flexShrink: 0,
             background: paciente.crise
               ? 'linear-gradient(135deg, rgba(248,113,113,0.3), rgba(248,113,113,0.1))'
-              : 'linear-gradient(135deg, rgba(99,102,241,0.3), rgba(167,139,250,0.1))',
-            border: paciente.crise ? '1px solid rgba(248,113,113,0.4)' : '1px solid rgba(99,102,241,0.2)',
+              : `linear-gradient(135deg, ${hexToRgba(corFaixa, 0.35)}, ${hexToRgba(corFaixa, 0.12)})`,
+            border: paciente.crise ? '1px solid rgba(248,113,113,0.4)' : `1px solid ${hexToRgba(corFaixa, 0.4)}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '0.9rem', fontWeight: 700,
-            color: paciente.crise ? 'var(--color-danger)' : 'var(--color-primary)',
+            color: paciente.crise ? 'var(--color-danger)' : corFaixa,
           }}>
             {initials}
           </div>
@@ -96,17 +111,31 @@ function PacienteCard({ paciente }: { paciente: Paciente }) {
 export default function Patients() {
   const { pacientes, loadingData } = useData();
   const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<PacienteStatus | 'todos' | 'valores'>('todos');
+  const [showFiltros, setShowFiltros] = useState(false);
+  const [statusFiltros, setStatusFiltros] = useState<PacienteStatus[]>([]);
+  const [faixaFiltros, setFaixaFiltros] = useState<string[]>([]);
   const [showModal, setShowModal] = useState(false);
+
+  const toggleStatusFiltro = (s: PacienteStatus) =>
+    setStatusFiltros(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+
+  const toggleFaixaFiltro = (key: string) =>
+    setFaixaFiltros(prev => prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]);
+
+  const limparFiltros = () => { setStatusFiltros([]); setFaixaFiltros([]); };
+
+  const totalFiltrosAtivos = statusFiltros.length + faixaFiltros.length;
 
   const filtered = useMemo(() => {
     return pacientes.filter(p => {
       const matchSearch = p.nomeExibicao.toLowerCase().includes(search.toLowerCase()) ||
         p.telefone?.includes(search);
-      const matchStatus = filterStatus === 'todos' || filterStatus === 'valores' || p.status === filterStatus;
-      return matchSearch && matchStatus;
+      const matchStatus = statusFiltros.length === 0 || statusFiltros.includes(p.status);
+      const matchFaixa = faixaFiltros.length === 0 ||
+        FAIXAS_DE_PRECO.some(f => faixaFiltros.includes(f.key) && f.match(p.valorAtual));
+      return matchSearch && matchStatus && matchFaixa;
     });
-  }, [pacientes, search, filterStatus]);
+  }, [pacientes, search, statusFiltros, faixaFiltros]);
 
   const pacientesEmCrise = pacientes.filter(p => p.crise);
 
@@ -156,7 +185,7 @@ export default function Patients() {
       )}
 
       {/* Search & Filter */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: showFiltros ? 12 : 20, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
           <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
           <input
@@ -168,20 +197,71 @@ export default function Patients() {
             id="input-buscar-pacientes"
           />
         </div>
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
-          {(['todos', 'ativo', 'inativo', 'alta', 'valores'] as const).map(s => (
-            <button
-              key={s}
-              className={`btn btn-sm ${filterStatus === s ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setFilterStatus(s)}
-              id={`btn-filtro-${s}`}
-              style={{ whiteSpace: 'nowrap' }}
-            >
-              {s === 'todos' ? 'Todos' : s === 'valores' ? 'Faixas de Valores' : s.charAt(0).toUpperCase() + s.slice(1)}
-            </button>
-          ))}
-        </div>
+        <button
+          className={`btn btn-sm ${showFiltros || totalFiltrosAtivos > 0 ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setShowFiltros(v => !v)}
+          id="btn-abrir-filtros"
+          style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <SlidersHorizontal size={14} />
+          Filtros{totalFiltrosAtivos > 0 ? ` (${totalFiltrosAtivos})` : ''}
+        </button>
       </div>
+
+      {showFiltros && (
+        <div className="card" style={{ padding: 16, marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text)' }}>Filtros</span>
+            <button className="btn btn-ghost btn-icon" onClick={() => setShowFiltros(false)} id="btn-fechar-filtros">
+              <XIcon size={16} />
+            </button>
+          </div>
+
+          <div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
+              Status
+            </p>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              {(['ativo', 'inativo', 'alta'] as PacienteStatus[]).map(s => (
+                <label key={s} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: '0.85rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={statusFiltros.includes(s)}
+                    onChange={() => toggleStatusFiltro(s)}
+                    id={`chk-status-${s}`}
+                  />
+                  {statusBadge[s].label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
+              Faixas de Valores
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {FAIXAS_DE_PRECO.map(f => (
+                <label key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: '0.85rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={faixaFiltros.includes(f.key)}
+                    onChange={() => toggleFaixaFiltro(f.key)}
+                    id={`chk-faixa-${f.key}`}
+                  />
+                  {f.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {totalFiltrosAtivos > 0 && (
+            <button className="btn btn-ghost btn-sm" onClick={limparFiltros} id="btn-limpar-filtros" style={{ alignSelf: 'flex-start' }}>
+              Limpar filtros
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Grid de pacientes ou Kanban de Valores */}
       {filtered.length === 0 ? (
@@ -197,9 +277,9 @@ export default function Patients() {
             </button>
           )}
         </div>
-      ) : filterStatus === 'valores' ? (
+      ) : faixaFiltros.length > 0 ? (
         <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 16 }}>
-          {FAIXAS_DE_PRECO.map(faixa => {
+          {FAIXAS_DE_PRECO.filter(f => faixaFiltros.includes(f.key)).map(faixa => {
             const pacientesDaFaixa = filtered
               .filter(p => faixa.match(p.valorAtual))
               .sort((a, b) => {
