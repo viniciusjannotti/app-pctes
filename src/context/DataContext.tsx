@@ -35,6 +35,7 @@ import {
   criarSeguimento15Dias,
   criarTarefaCrise,
   verificarRetornosPendentes,
+  verificarLembretesAgendamento,
   verificarAniversarios,
   verificarReajustes,
   verificarInatividade,
@@ -146,6 +147,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await verificarAniversarios(pacientes, uid);
         await verificarReajustes(pacientes, uid);
         await verificarRetornosPendentes(pacientes, uid, atendimentos);
+        await verificarLembretesAgendamento(pacientes, uid, atendimentos);
         const sugeridos = verificarInatividade(pacientes, atendimentos);
         setInatividadeSugerida(sugeridos);
       } catch (e) {
@@ -191,13 +193,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const paciente = pacientes.find(p => p.id === data.pacienteId);
     if (!paciente) return;
 
-    // Automações
-    if (data.criarSeguimento15Dias) {
-      await criarSeguimento15Dias(atendimento, paciente.nomeExibicao);
-    }
-    if (data.marcarCrise) {
-      await updatePaciente(paciente.id, { crise: true });
-      await criarTarefaCrise(user.uid, paciente.id, paciente.nomeExibicao);
+    // Automações (pacientes inativos não geram novas tarefas automáticas)
+    if (paciente.status === 'ativo') {
+      if (data.criarSeguimento15Dias) {
+        await criarSeguimento15Dias(atendimento, paciente.nomeExibicao);
+      }
+      if (data.marcarCrise) {
+        await updatePaciente(paciente.id, { crise: true });
+        await criarTarefaCrise(user.uid, paciente.id, paciente.nomeExibicao);
+      }
     }
   }, [user, pacientes, updatePaciente]);
 
@@ -247,7 +251,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // Se crise recorrente, gera próxima tarefa se paciente ainda em crise
     if (tarefa.tipo === 'crise' && tarefa.recorrente) {
       const paciente = pacientes.find(p => p.id === tarefa.pacienteId);
-      if (paciente?.crise) {
+      if (paciente?.crise && paciente.status === 'ativo') {
         await criarTarefaCrise(tarefa.ownerId, tarefa.pacienteId, paciente.nomeExibicao);
       }
     }

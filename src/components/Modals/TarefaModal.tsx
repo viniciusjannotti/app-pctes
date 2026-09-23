@@ -12,6 +12,7 @@ interface Props {
 const tipoLabels: Record<TarefaTipo, string> = {
   seguimento: 'Seguimento',
   retornoPrevisto: 'Retorno Previsto',
+  lembreteAgendamento: 'Lembrete de Agendamento',
   aniversario: 'Aniversário',
   cobranca: 'Cobrança',
   reajuste: 'Reajuste',

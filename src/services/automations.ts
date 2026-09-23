@@ -176,6 +176,7 @@ export async function verificarAniversarios(
   const anoHoje = hoje.getFullYear();
 
   for (const paciente of pacientes) {
+    if (paciente.status !== 'ativo') continue;
     if (!paciente.dataNascimento) continue;
     const [, mesNasc, diaNasc] = paciente.dataNascimento.split('-').map(Number);
     if (diaNasc !== diaHoje || mesNasc !== mesHoje) continue;
@@ -249,7 +250,58 @@ export async function verificarReajustes(
 }
 
 // ────────────────────────────────────────────
-// 6. Sugestão de inatividade (retorna lista de pacientes sugeridos)
+// 6. Lembrete de agendamento — 15 dias antes da próxima consulta prevista
+// ────────────────────────────────────────────
+export async function verificarLembretesAgendamento(
+  pacientes: Paciente[],
+  ownerId: string,
+  atendimentos: Atendimento[]
+): Promise<void> {
+  const hoje = startOfDay(new Date());
+
+  for (const paciente of pacientes) {
+    if (paciente.status !== 'ativo') continue;
+
+    const atendimentosComRetorno = atendimentos.filter(
+      a => a.pacienteId === paciente.id && a.proximaConsultaPrevista
+    );
+
+    for (const at of atendimentosComRetorno) {
+      const dataPrevista = startOfDay(new Date(at.proximaConsultaPrevista!));
+      const dataLembrete = addDays(dataPrevista, -15);
+
+      // Só dispara dentro da janela dos 15 dias que antecedem a consulta prevista
+      if (hoje < dataLembrete || hoje >= dataPrevista) continue;
+
+      // Se já houve um atendimento a partir da data prevista, o agendamento já foi feito
+      const houvePosterior = atendimentos.some(
+        a => a.pacienteId === paciente.id && new Date(a.dataAtendimento) >= dataPrevista
+      );
+      if (houvePosterior) continue;
+
+      const existe = await tarefaExiste(ownerId, paciente.id, 'lembreteAgendamento');
+      if (existe) continue;
+
+      await addDoc(collection(db, colTarefas), {
+        ownerId,
+        pacienteId: paciente.id,
+        titulo: `Agendar Consulta: ${paciente.nomeExibicao}`,
+        descricao: `Próxima consulta prevista para ${dataPrevista.toLocaleDateString('pt-BR')}. Entre em contato para confirmar o agendamento.`,
+        tipo: 'lembreteAgendamento',
+        prioridade: 'media',
+        dataPrevista: toISO(hoje),
+        concluida: false,
+        concluidaEm: null,
+        recorrente: false,
+        metaData: { atendimentoId: at.id },
+        createdAt: toISO(new Date()),
+      });
+    }
+  }
+}
+
+// ────────────────────────────────────────────
+// 7. Sugestão de inatividade (retorna lista de pacientes sugeridos)
 // ────────────────────────────────────────────
 export function verificarInatividade(
   pacientes: Paciente[],

@@ -29,6 +29,7 @@ const prioridadeLabel: Record<TarefaPrioridade, string> = {
 const tipoLabel: Record<string, string> = {
   seguimento: 'Seguimento',
   retornoPrevisto: 'Retorno',
+  lembreteAgendamento: 'Agendamento',
   aniversario: 'Aniversário',
   cobranca: 'Cobrança',
   reajuste: 'Reajuste',
@@ -118,18 +119,26 @@ export default function Dashboard() {
   hoje.setHours(23, 59, 59, 999);
   const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
 
+  // Pacientes inativos não devem gerar/exibir novas tarefas ou pendências
+  const pacientesInativosIds = useMemo(() =>
+    new Set(pacientes.filter(p => p.status === 'inativo').map(p => p.id)),
+    [pacientes]
+  );
+  const isTarefaDePacienteInativo = (pacienteId: string) => pacientesInativosIds.has(pacienteId);
+  const isAtendimentoDePacienteInativo = (pacienteId: string) => pacientesInativosIds.has(pacienteId);
+
   const tarefasHoje = useMemo(() =>
     tarefas
-      .filter(t => !t.concluida && new Date(t.dataPrevista) <= hoje && new Date(t.dataPrevista) >= inicioDia)
+      .filter(t => !t.concluida && !isTarefaDePacienteInativo(t.pacienteId) && new Date(t.dataPrevista) <= hoje && new Date(t.dataPrevista) >= inicioDia)
       .sort((a, b) => prioridadeOrder[b.prioridade] - prioridadeOrder[a.prioridade]),
-    [tarefas]
+    [tarefas, pacientesInativosIds]
   );
 
   const tarefasAtrasadas = useMemo(() =>
     tarefas
-      .filter(t => !t.concluida && new Date(t.dataPrevista) < inicioDia)
+      .filter(t => !t.concluida && !isTarefaDePacienteInativo(t.pacienteId) && new Date(t.dataPrevista) < inicioDia)
       .sort((a, b) => new Date(a.dataPrevista).getTime() - new Date(b.dataPrevista).getTime()),
-    [tarefas]
+    [tarefas, pacientesInativosIds]
   );
 
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
@@ -143,13 +152,15 @@ export default function Dashboard() {
   const pacientesAtivos = pacientes.filter(p => p.status === 'ativo').length;
 
   const cobrancasPendentes = useMemo(() =>
-    atendimentos.reduce((sum, a) => sum + (a.valorPendente || 0), 0),
-    [atendimentos]
+    atendimentos
+      .filter(a => !isAtendimentoDePacienteInativo(a.pacienteId))
+      .reduce((sum, a) => sum + (a.valorPendente || 0), 0),
+    [atendimentos, pacientesInativosIds]
   );
 
   const demandasAbertas = useMemo(() =>
-    tarefas.filter(t => !t.concluida && ['seguimento', 'retornoPrevisto', 'crise'].includes(t.tipo)).length,
-    [tarefas]
+    tarefas.filter(t => !t.concluida && !isTarefaDePacienteInativo(t.pacienteId) && ['seguimento', 'retornoPrevisto', 'lembreteAgendamento', 'crise'].includes(t.tipo)).length,
+    [tarefas, pacientesInativosIds]
   );
 
   const getPacienteNome = (id: string) =>

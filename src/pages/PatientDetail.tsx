@@ -77,7 +77,7 @@ const tipoInteracaoLabel: Record<string, string> = {
   administrativo: 'Administrativo', outro: 'Outro',
 };
 const tipoTarefaLabel: Record<string, string> = {
-  seguimento: 'Seguimento', retornoPrevisto: 'Retorno', aniversario: 'Aniversário',
+  seguimento: 'Seguimento', retornoPrevisto: 'Retorno', lembreteAgendamento: 'Agendamento', aniversario: 'Aniversário',
   cobranca: 'Cobrança', reajuste: 'Reajuste', crise: 'Crise', personalizada: 'Tarefa',
 };
 

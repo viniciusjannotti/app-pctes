@@ -11,12 +11,14 @@ interface Props {
 const TIPO_COLORS: Record<string, string> = {
   seguimento: '#6366f1',
   retornoPrevisto: '#34d399',
+  lembreteAgendamento: '#fbbf24',
   crise: '#f87171',
 };
 
 const TIPO_LABELS: Record<string, string> = {
   seguimento: 'Seguimento',
   retornoPrevisto: 'Retorno',
+  lembreteAgendamento: 'Agendamento',
   crise: 'Crise',
 };
 
@@ -49,10 +51,14 @@ const CustomTooltip = ({ active, payload }: any) => {
 export default function DemandasAbertasModal({ onClose }: Props) {
   const { tarefas, pacientes } = useData();
 
-  const demandasAbertas = useMemo(() =>
-    tarefas.filter(t => !t.concluida && ['seguimento', 'retornoPrevisto', 'crise'].includes(t.tipo)),
-    [tarefas]
-  );
+  const demandasAbertas = useMemo(() => {
+    const inativosIds = new Set(pacientes.filter(p => p.status === 'inativo').map(p => p.id));
+    return tarefas.filter(t =>
+      !t.concluida &&
+      !inativosIds.has(t.pacienteId) &&
+      ['seguimento', 'retornoPrevisto', 'lembreteAgendamento', 'crise'].includes(t.tipo)
+    );
+  }, [tarefas, pacientes]);
 
   const getPacienteNome = (id: string) =>
     pacientes.find(p => p.id === id)?.nomeExibicao || 'Sem paciente';

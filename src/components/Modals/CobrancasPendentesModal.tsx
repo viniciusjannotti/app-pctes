@@ -25,6 +25,7 @@ export default function CobrancasPendentesModal({ onClose }: Props) {
     atendimentos.forEach(a => {
       if (!a.valorPendente || a.valorPendente <= 0) return;
       const pac = pacientes.find(p => p.id === a.pacienteId);
+      if (pac?.status === 'inativo') return;
       const nome = pac?.nomeExibicao || 'Paciente desconhecido';
 
       if (!map.has(a.pacienteId)) {

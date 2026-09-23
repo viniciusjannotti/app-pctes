@@ -53,6 +53,7 @@ export interface Interacao {
 export type TarefaTipo =
   | 'seguimento'
   | 'retornoPrevisto'
+  | 'lembreteAgendamento'
   | 'aniversario'
   | 'cobranca'
   | 'reajuste'
