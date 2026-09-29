@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { adminDb } from '../_lib/firebaseAdmin';
-import { verifyState } from '../_lib/oauthState';
-import { encryptToken } from '../_lib/tokenCrypto';
+import { adminDb } from '../_lib/firebaseAdmin.js';
+import { verifyState } from '../_lib/oauthState.js';
+import { encryptToken } from '../_lib/tokenCrypto.js';
 
 function redirectTo(res: VercelResponse, status: 'connected' | 'error') {
   res.writeHead(302, { Location: `/configuracoes?google=${status}` });

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getUidFromRequest, UnauthorizedError } from '../_lib/auth';
-import { signState } from '../_lib/oauthState';
+import { getUidFromRequest, UnauthorizedError } from '../_lib/auth.js';
+import { signState } from '../_lib/oauthState.js';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',

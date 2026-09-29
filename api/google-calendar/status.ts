@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getUidFromRequest, UnauthorizedError } from '../_lib/auth';
-import { adminDb } from '../_lib/firebaseAdmin';
+import { getUidFromRequest, UnauthorizedError } from '../_lib/auth.js';
+import { adminDb } from '../_lib/firebaseAdmin.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
