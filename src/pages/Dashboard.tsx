@@ -12,7 +12,6 @@ import ReceitaMesModal from '../components/Modals/ReceitaMesModal';
 import PacientesAtivosModal from '../components/Modals/PacientesAtivosModal';
 import CobrancasPendentesModal from '../components/Modals/CobrancasPendentesModal';
 import DemandasAbertasModal from '../components/Modals/DemandasAbertasModal';
-import CalendarioConsultas from '../components/CalendarioConsultas';
 
 const prioridadeOrder: Record<TarefaPrioridade, number> = {
   critica: 4, alta: 3, media: 2, baixa: 1,
@@ -274,11 +273,6 @@ export default function Dashboard() {
             <p className="stat-card-hint">{card.hint}</p>
           </button>
         ))}
-      </div>
-
-      {/* Calendário de Consultas */}
-      <div style={{ marginBottom: 20 }}>
-        <CalendarioConsultas />
       </div>
 
       {/* Minha Atenção Hoje */}

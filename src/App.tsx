@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
 import PatientDetail from './pages/PatientDetail';
 import Configuracoes from './pages/Configuracoes';
+import Agenda from './pages/Agenda';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -70,6 +71,16 @@ export default function App() {
           <PrivateRoute>
             <Layout>
               <Configuracoes />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/agenda"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <Agenda />
             </Layout>
           </PrivateRoute>
         }

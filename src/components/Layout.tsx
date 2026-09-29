@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, Users, Plus, LogOut, Menu, X, Zap, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, Plus, LogOut, Menu, X, Zap, Settings, Calendar, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AtendimentoModal from './Modals/AtendimentoModal';
 import InteracaoModal from './Modals/InteracaoModal';
@@ -15,13 +15,14 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showRegisterMenu, setShowRegisterMenu] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAtendimentoModal, setShowAtendimentoModal] = useState(false);
   const [showInteracaoModal, setShowInteracaoModal] = useState(false);
 
   const navItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
     { label: 'Pacientes', icon: Users, path: '/pacientes' },
-    { label: 'Configurações', icon: Settings, path: '/configuracoes' },
+    { label: 'Agenda', icon: Calendar, path: '/agenda' },
   ];
 
   const handleLogout = async () => {
@@ -131,19 +132,67 @@ export default function Layout({ children }: LayoutProps) {
             )}
           </div>
 
-          {/* Avatar & logout desktop */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} className="hidden-mobile">
-            <div style={{
-              width: 32, height: 32, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #6366f1, #a78bfa)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '0.75rem', fontWeight: 700, color: 'white',
-            }}>
-              {initials}
-            </div>
-            <button className="btn btn-ghost btn-icon" onClick={handleLogout} title="Sair" id="btn-logout">
-              <LogOut size={16} />
+          {/* Perfil (avatar clicável) desktop */}
+          <div style={{ position: 'relative' }} className="hidden-mobile">
+            <button
+              onClick={() => setShowProfileMenu(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
+              }}
+              id="btn-perfil"
+            >
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #6366f1, #a78bfa)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.75rem', fontWeight: 700, color: 'white',
+              }}>
+                {initials}
+              </div>
+              <ChevronDown size={14} color="var(--color-text-muted)" />
             </button>
+            {showProfileMenu && (
+              <>
+                <div
+                  style={{ position: 'fixed', inset: 0, zIndex: 30 }}
+                  onClick={() => setShowProfileMenu(false)}
+                />
+                <div style={{
+                  position: 'absolute', right: 0, top: '110%',
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 12, padding: 8, minWidth: 190, zIndex: 40,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                }}>
+                  <p style={{
+                    fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-text)',
+                    padding: '4px 10px 10px', marginBottom: 4,
+                    borderBottom: '1px solid var(--color-border)',
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>
+                    {displayName}
+                  </p>
+                  <Link
+                    to="/configuracoes"
+                    onClick={() => setShowProfileMenu(false)}
+                    className="btn btn-ghost"
+                    style={{ width: '100%', justifyContent: 'flex-start', textDecoration: 'none' }}
+                    id="link-configuracoes-menu"
+                  >
+                    <Settings size={16} /> Configurações
+                  </Link>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ width: '100%', justifyContent: 'flex-start', color: 'var(--color-danger)' }}
+                    onClick={handleLogout}
+                    id="btn-logout"
+                  >
+                    <LogOut size={16} /> Sair
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Mobile menu toggle */}
@@ -182,6 +231,20 @@ export default function Layout({ children }: LayoutProps) {
               </Link>
             ))}
             <div className="divider" />
+            <Link
+              to="/configuracoes"
+              onClick={() => setMenuOpen(false)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '10px 12px', borderRadius: 8,
+                textDecoration: 'none',
+                fontSize: '0.9rem', fontWeight: 500,
+                color: location.pathname === '/configuracoes' ? 'var(--color-primary)' : 'var(--color-text)',
+                background: location.pathname === '/configuracoes' ? 'rgba(99,102,241,0.1)' : 'transparent',
+              }}
+            >
+              <Settings size={18} /> Configurações
+            </Link>
             <button
               className="btn btn-ghost"
               style={{ justifyContent: 'flex-start', color: 'var(--color-danger)' }}
