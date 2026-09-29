@@ -49,5 +49,12 @@ service cloud.firestore {
       allow update: if isOwner(resource.data);
       allow delete: if isOwner(resource.data);
     }
+
+    // ─── Integração Google Agenda (somente Admin SDK) ─────────────────
+    // Tokens OAuth ficam aqui; o cliente nunca lê/escreve direto, só via
+    // os endpoints serverless que usam o Firebase Admin SDK.
+    match /googleCalendarIntegrations/{userId} {
+      allow read, write: if false;
+    }
   }
 }

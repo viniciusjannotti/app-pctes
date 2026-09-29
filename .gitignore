@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+.vercel
+
+# Chaves de conta de serviço do Firebase (nunca versionar)
+*firebase-adminsdk*.json
 
 # Editor directories and files
 .vscode/*

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { LayoutDashboard, Users, Plus, LogOut, Menu, X, Zap } from 'lucide-react';
+import { LayoutDashboard, Users, Plus, LogOut, Menu, X, Zap, Settings } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AtendimentoModal from './Modals/AtendimentoModal';
 import InteracaoModal from './Modals/InteracaoModal';
@@ -21,6 +21,7 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
     { label: 'Pacientes', icon: Users, path: '/pacientes' },
+    { label: 'Configurações', icon: Settings, path: '/configuracoes' },
   ];
 
   const handleLogout = async () => {

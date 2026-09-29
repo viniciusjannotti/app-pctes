@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
 import PatientDetail from './pages/PatientDetail';
+import Configuracoes from './pages/Configuracoes';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -59,6 +60,16 @@ export default function App() {
           <PrivateRoute>
             <Layout>
               <PatientDetail />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/configuracoes"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <Configuracoes />
             </Layout>
           </PrivateRoute>
         }
