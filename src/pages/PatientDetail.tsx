@@ -186,6 +186,33 @@ export default function PatientDetail() {
               <h1 style={{ fontSize: '1.4rem', fontWeight: 800 }}>{paciente.nomeExibicao}</h1>
               <span className={`badge ${statusBadgeCls[paciente.status]}`}>{statusLabel[paciente.status]}</span>
               {paciente.crise && <span className="badge badge-crise">🚨 Crise</span>}
+              <div style={{ display: 'flex', gap: 4, marginLeft: 4 }}>
+                {([30, 60, 90] as const).map(min => {
+                  const isSel = paciente.duracaoConsulta === min;
+                  return (
+                    <button
+                      key={min}
+                      type="button"
+                      onClick={() => updatePaciente(paciente.id, { duracaoConsulta: min })}
+                      id={`btn-duracao-${min}`}
+                      title={`Duração da consulta: ${min} minutos`}
+                      style={{
+                        padding: '3px 9px',
+                        borderRadius: 20,
+                        border: `1px solid ${isSel ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                        background: isSel ? 'rgba(99,102,241,0.15)' : 'transparent',
+                        color: isSel ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {min} min
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>

@@ -18,6 +18,7 @@ export interface Paciente {
   necessitaNotaFiscal: boolean;
   status: PacienteStatus;
   crise: boolean;
+  duracaoConsulta?: 30 | 60 | 90; // minutos
   createdAt: string;
 }
 
