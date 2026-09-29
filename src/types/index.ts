@@ -78,6 +78,15 @@ export interface Tarefa {
   createdAt: string;
 }
 
+export interface Disponibilidade {
+  id: string;
+  ownerId: string;
+  data: string; // ISO date string (meio-dia, mesmo padrão de dataAtendimento)
+  horaInicio: string; // "HH:mm"
+  horaFim: string; // "HH:mm"
+  createdAt: string;
+}
+
 // For timeline view — unified entry
 export type TimelineItemType = 'atendimento' | 'interacao' | 'tarefa';
 

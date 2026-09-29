@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, X, Trash2 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
+import { Disponibilidade } from '../types';
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const MESES_PT = [
@@ -22,8 +23,18 @@ interface EventoDia {
   atendimentoId: string;
 }
 
-export default function CalendarioConsultas() {
-  const { atendimentos, pacientes } = useData();
+interface CalendarioConsultasProps {
+  modoSelecaoDisponibilidade?: boolean;
+  datasSelecionadas?: Set<string>;
+  onToggleDataSelecionada?: (dateKey: string) => void;
+}
+
+export default function CalendarioConsultas({
+  modoSelecaoDisponibilidade = false,
+  datasSelecionadas = new Set(),
+  onToggleDataSelecionada,
+}: CalendarioConsultasProps) {
+  const { atendimentos, pacientes, disponibilidades, deleteDisponibilidade } = useData();
   const hoje = new Date();
 
   const [mesSelecionado, setMesSelecionado] = useState(hoje.getMonth());
@@ -74,6 +85,18 @@ export default function CalendarioConsultas() {
     return mapa;
   }, [atendimentos, pacientes]);
 
+  // Construir mapa de datas → disponibilidades configuradas
+  const disponibilidadesPorDia = useMemo(() => {
+    const mapa = new Map<string, Disponibilidade[]>();
+    disponibilidades.forEach(d => {
+      const data = new Date(d.data);
+      const key = `${data.getFullYear()}-${data.getMonth()}-${data.getDate()}`;
+      if (!mapa.has(key)) mapa.set(key, []);
+      mapa.get(key)!.push(d);
+    });
+    return mapa;
+  }, [disponibilidades]);
+
   // Grid de dias do mês
   const diasDoMes = useMemo(() => {
     const primeiroDia = new Date(anoSelecionado, mesSelecionado, 1);
@@ -113,6 +136,10 @@ export default function CalendarioConsultas() {
 
   const eventosDiaSelecionado = diaSelecionado
     ? (eventosPorDia.get(`${anoSelecionado}-${mesSelecionado}-${diaSelecionado}`) || [])
+    : [];
+
+  const disponibilidadesDiaSelecionado = diaSelecionado
+    ? (disponibilidadesPorDia.get(`${anoSelecionado}-${mesSelecionado}-${diaSelecionado}`) || [])
     : [];
 
   const handleDiaClick = (dia: number) => {
@@ -208,62 +235,77 @@ export default function CalendarioConsultas() {
               return <div key={`empty-${idx}`} />;
             }
             const eventos = eventosPorDia.get(item.key) || [];
+            const disponibilidadesDoDia = disponibilidadesPorDia.get(item.key) || [];
             const temConsulta = eventos.some(e => e.tipo === 'consulta');
             const temRetorno = eventos.some(e => e.tipo === 'retornoBreve');
             const temFuturo = eventos.some(e => e.tipo === 'futuro');
+            const temDisponibilidade = disponibilidadesDoDia.length > 0;
             const isSel = diaSelecionado === item.dia;
             const isToday = isHoje(item.dia);
+            const isPendenteSelecao = modoSelecaoDisponibilidade && datasSelecionadas.has(item.key);
 
             return (
               <div
                 key={item.key}
-                onClick={() => item.dia && handleDiaClick(item.dia)}
+                onClick={() => {
+                  if (!item.key) return;
+                  if (modoSelecaoDisponibilidade) {
+                    onToggleDataSelecionada?.(item.key);
+                  } else if (item.dia) {
+                    handleDiaClick(item.dia);
+                  }
+                }}
                 onMouseEnter={e => item.dia && item.key && handleDiaHover(e, item.dia, item.key)}
                 id={`dia-cal-${item.key}`}
                 style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   padding: '6px 4px',
                   borderRadius: 10,
-                  cursor: eventos.length > 0 ? 'pointer' : 'default',
-                  background: isSel
-                    ? 'rgba(99,102,241,0.2)'
-                    : isToday
-                      ? 'rgba(99,102,241,0.08)'
-                      : 'transparent',
-                  border: isToday
-                    ? '1px solid rgba(99,102,241,0.4)'
+                  cursor: (modoSelecaoDisponibilidade || eventos.length > 0) ? 'pointer' : 'default',
+                  background: isPendenteSelecao
+                    ? 'rgba(34,211,238,0.18)'
                     : isSel
-                      ? '1px solid rgba(99,102,241,0.5)'
-                      : '1px solid transparent',
+                      ? 'rgba(99,102,241,0.2)'
+                      : isToday
+                        ? 'rgba(99,102,241,0.08)'
+                        : 'transparent',
+                  border: isPendenteSelecao
+                    ? '1.5px solid #22d3ee'
+                    : isToday
+                      ? '1px solid rgba(99,102,241,0.4)'
+                      : isSel
+                        ? '1px solid rgba(99,102,241,0.5)'
+                        : '1px solid transparent',
                   transition: 'all 0.15s',
                   minHeight: 52,
                 }}
                 onMouseOver={e => {
-                  if (!isSel && !isToday && eventos.length > 0) {
+                  if (!isPendenteSelecao && !isSel && !isToday && (modoSelecaoDisponibilidade || eventos.length > 0)) {
                     (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
                   }
                 }}
                 onMouseOut={e => {
-                  if (!isSel && !isToday) {
+                  if (!isPendenteSelecao && !isSel && !isToday) {
                     (e.currentTarget as HTMLElement).style.background = 'transparent';
                   }
                 }}
               >
                 <span style={{
                   fontSize: '0.82rem',
-                  fontWeight: isToday ? 800 : isSel ? 700 : 400,
-                  color: isToday ? 'var(--color-primary)' : isSel ? 'var(--color-text)' : 'var(--color-text-dim)',
+                  fontWeight: isPendenteSelecao ? 700 : isToday ? 800 : isSel ? 700 : 400,
+                  color: isPendenteSelecao ? '#22d3ee' : isToday ? 'var(--color-primary)' : isSel ? 'var(--color-text)' : 'var(--color-text-dim)',
                   lineHeight: 1.2,
                   marginBottom: 4,
                 }}>
                   {item.dia}
                 </span>
                 {/* Dots de eventos */}
-                {(temConsulta || temRetorno || temFuturo) && (
+                {(temConsulta || temRetorno || temFuturo || temDisponibilidade) && (
                   <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: 'center' }}>
                     {temConsulta && <div style={{ width: 6, height: 6, borderRadius: 2, background: '#34d399' }} />}
                     {temRetorno && <div style={{ width: 6, height: 6, borderRadius: 2, background: '#818cf8' }} />}
                     {temFuturo && <div style={{ width: 6, height: 6, borderRadius: 2, background: '#fbbf24' }} />}
+                    {temDisponibilidade && <div style={{ width: 6, height: 6, borderRadius: 2, background: '#22d3ee' }} />}
                   </div>
                 )}
                 {/* Número de eventos */}
@@ -283,6 +325,7 @@ export default function CalendarioConsultas() {
             { color: '#34d399', label: 'Consulta realizada' },
             { color: '#818cf8', label: 'Retorno realizado' },
             { color: '#fbbf24', label: 'Retorno previsto' },
+            { color: '#22d3ee', label: 'Disponibilidade configurada' },
           ].map(item => (
             <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: item.color }} />
@@ -329,7 +372,7 @@ export default function CalendarioConsultas() {
       )}
 
       {/* Painel de detalhes do dia selecionado */}
-      {diaSelecionado && (
+      {diaSelecionado && !modoSelecaoDisponibilidade && (
         <div style={{
           borderTop: '1px solid var(--color-border)',
           padding: '16px 20px',
@@ -349,7 +392,34 @@ export default function CalendarioConsultas() {
             </button>
           </div>
 
-          {eventosDiaSelecionado.length === 0 ? (
+          {disponibilidadesDiaSelecionado.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: eventosDiaSelecionado.length > 0 ? 10 : 0 }}>
+              {disponibilidadesDiaSelecionado.map(d => (
+                <div key={d.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  background: 'rgba(34,211,238,0.08)',
+                  border: '1px solid rgba(34,211,238,0.25)',
+                  borderRadius: 8,
+                }}>
+                  <span style={{ fontSize: '0.82rem', color: '#22d3ee', fontWeight: 600 }}>
+                    Disponível: {d.horaInicio}–{d.horaFim}
+                  </span>
+                  <button
+                    className="btn btn-ghost btn-icon"
+                    onClick={() => deleteDisponibilidade(d.id)}
+                    id={`btn-excluir-disponibilidade-${d.id}`}
+                    style={{ padding: 4 }}
+                    title="Excluir disponibilidade"
+                  >
+                    <Trash2 size={13} color="var(--color-danger)" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {eventosDiaSelecionado.length === 0 && disponibilidadesDiaSelecionado.length === 0 ? (
             <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
               Nenhum atendimento registrado neste dia.
             </p>

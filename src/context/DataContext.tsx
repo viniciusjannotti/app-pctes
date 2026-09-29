@@ -25,6 +25,7 @@ import {
   Atendimento,
   Interacao,
   Tarefa,
+  Disponibilidade,
   PacienteStatus,
   AtendimentoTipo,
   InteracaoTipo,
@@ -46,6 +47,7 @@ interface DataContextType {
   atendimentos: Atendimento[];
   interacoes: Interacao[];
   tarefas: Tarefa[];
+  disponibilidades: Disponibilidade[];
   loadingData: boolean;
   inatividadeSugerida: Paciente[];
 
@@ -69,6 +71,10 @@ interface DataContextType {
   concluirTarefa: (id: string) => Promise<void>;
   deleteTarefa: (id: string) => Promise<void>;
   updateTarefa: (id: string, data: Partial<Tarefa>) => Promise<void>;
+
+  // Disponibilidades
+  addDisponibilidade: (data: Omit<Disponibilidade, 'id' | 'ownerId' | 'createdAt'>) => Promise<void>;
+  deleteDisponibilidade: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | null>(null);
@@ -95,13 +101,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [atendimentos, setAtendimentos] = useState<Atendimento[]>([]);
   const [interacoes, setInteracoes] = useState<Interacao[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [disponibilidades, setDisponibilidades] = useState<Disponibilidade[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [inatividadeSugerida, setInatividadeSugerida] = useState<Paciente[]>([]);
   const [automationsRan, setAutomationsRan] = useState(false);
 
   useEffect(() => {
     if (!user) {
-      setPacientes([]); setAtendimentos([]); setInteracoes([]); setTarefas([]);
+      setPacientes([]); setAtendimentos([]); setInteracoes([]); setTarefas([]); setDisponibilidades([]);
       setLoadingData(false);
       setAutomationsRan(false);
       return;
@@ -129,6 +136,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const qTar = query(collection(db, 'tarefas'), where('ownerId', '==', uid), orderBy('dataPrevista'));
     subs.push(onSnapshot(qTar, snap => {
       setTarefas(snap.docs.map(d => mapDoc<Tarefa>(d)));
+    }));
+
+    const qDisp = query(collection(db, 'disponibilidades'), where('ownerId', '==', uid), orderBy('data'));
+    subs.push(onSnapshot(qDisp, snap => {
+      setDisponibilidades(snap.docs.map(d => mapDoc<Disponibilidade>(d)));
       setLoadingData(false);
     }));
 
@@ -265,13 +277,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await updateDoc(doc(db, 'tarefas', id), data);
   }, []);
 
+  // ─── Disponibilidades ───
+  const addDisponibilidade = useCallback(async (data: Omit<Disponibilidade, 'id' | 'ownerId' | 'createdAt'>) => {
+    if (!user) throw new Error('Not authenticated');
+    await addDoc(collection(db, 'disponibilidades'), {
+      ...data,
+      ownerId: user.uid,
+      createdAt: serverTimestamp(),
+    });
+  }, [user]);
+
+  const deleteDisponibilidade = useCallback(async (id: string) => {
+    await deleteDoc(doc(db, 'disponibilidades', id));
+  }, []);
+
   return (
     <DataContext.Provider value={{
-      pacientes, atendimentos, interacoes, tarefas, loadingData, inatividadeSugerida,
+      pacientes, atendimentos, interacoes, tarefas, disponibilidades, loadingData, inatividadeSugerida,
       addPaciente, updatePaciente, deletePaciente,
       addAtendimento, updateAtendimento, deleteAtendimento,
       addInteracao, updateInteracao, deleteInteracao,
       addTarefa, concluirTarefa, deleteTarefa, updateTarefa,
+      addDisponibilidade, deleteDisponibilidade,
     }}>
       {children}
     </DataContext.Provider>
