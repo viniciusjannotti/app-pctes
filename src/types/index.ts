@@ -88,6 +88,16 @@ export interface Disponibilidade {
   createdAt: string;
 }
 
+export interface Agendamento {
+  id: string;
+  ownerId: string;
+  pacienteId: string;
+  data: string; // ISO date string (meio-dia, mesmo padrão de Disponibilidade)
+  horaInicio: string; // "HH:mm"
+  horaFim: string; // "HH:mm" — calculado na criação (horaInicio + duracaoConsulta do paciente)
+  createdAt: string;
+}
+
 // For timeline view — unified entry
 export type TimelineItemType = 'atendimento' | 'interacao' | 'tarefa';
 

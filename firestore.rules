@@ -58,6 +58,14 @@ service cloud.firestore {
       allow delete: if isOwner(resource.data);
     }
 
+    // ─── Agendamentos ───────────────────────────────────────────────
+    match /agendamentos/{docId} {
+      allow read:   if isAuth() && resource.data.ownerId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isOwner(resource.data);
+      allow delete: if isOwner(resource.data);
+    }
+
     // ─── Integração Google Agenda (somente Admin SDK) ─────────────────
     // Tokens OAuth ficam aqui; o cliente nunca lê/escreve direto, só via
     // os endpoints serverless que usam o Firebase Admin SDK.

@@ -26,6 +26,7 @@ import {
   Interacao,
   Tarefa,
   Disponibilidade,
+  Agendamento,
   PacienteStatus,
   AtendimentoTipo,
   InteracaoTipo,
@@ -48,6 +49,7 @@ interface DataContextType {
   interacoes: Interacao[];
   tarefas: Tarefa[];
   disponibilidades: Disponibilidade[];
+  agendamentos: Agendamento[];
   loadingData: boolean;
   inatividadeSugerida: Paciente[];
 
@@ -75,6 +77,10 @@ interface DataContextType {
   // Disponibilidades
   addDisponibilidade: (data: Omit<Disponibilidade, 'id' | 'ownerId' | 'createdAt'>) => Promise<void>;
   deleteDisponibilidade: (id: string) => Promise<void>;
+
+  // Agendamentos
+  addAgendamento: (data: Omit<Agendamento, 'id' | 'ownerId' | 'createdAt'>) => Promise<void>;
+  deleteAgendamento: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | null>(null);
@@ -102,13 +108,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [interacoes, setInteracoes] = useState<Interacao[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [disponibilidades, setDisponibilidades] = useState<Disponibilidade[]>([]);
+  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [inatividadeSugerida, setInatividadeSugerida] = useState<Paciente[]>([]);
   const [automationsRan, setAutomationsRan] = useState(false);
 
   useEffect(() => {
     if (!user) {
-      setPacientes([]); setAtendimentos([]); setInteracoes([]); setTarefas([]); setDisponibilidades([]);
+      setPacientes([]); setAtendimentos([]); setInteracoes([]); setTarefas([]); setDisponibilidades([]); setAgendamentos([]);
       setLoadingData(false);
       setAutomationsRan(false);
       return;
@@ -141,6 +148,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const qDisp = query(collection(db, 'disponibilidades'), where('ownerId', '==', uid), orderBy('data'));
     subs.push(onSnapshot(qDisp, snap => {
       setDisponibilidades(snap.docs.map(d => mapDoc<Disponibilidade>(d)));
+    }));
+
+    const qAgend = query(collection(db, 'agendamentos'), where('ownerId', '==', uid), orderBy('data'));
+    subs.push(onSnapshot(qAgend, snap => {
+      setAgendamentos(snap.docs.map(d => mapDoc<Agendamento>(d)));
       setLoadingData(false);
     }));
 
@@ -291,14 +303,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await deleteDoc(doc(db, 'disponibilidades', id));
   }, []);
 
+  // ─── Agendamentos ───
+  const addAgendamento = useCallback(async (data: Omit<Agendamento, 'id' | 'ownerId' | 'createdAt'>) => {
+    if (!user) throw new Error('Not authenticated');
+    await addDoc(collection(db, 'agendamentos'), {
+      ...data,
+      ownerId: user.uid,
+      createdAt: serverTimestamp(),
+    });
+  }, [user]);
+
+  const deleteAgendamento = useCallback(async (id: string) => {
+    await deleteDoc(doc(db, 'agendamentos', id));
+  }, []);
+
   return (
     <DataContext.Provider value={{
-      pacientes, atendimentos, interacoes, tarefas, disponibilidades, loadingData, inatividadeSugerida,
+      pacientes, atendimentos, interacoes, tarefas, disponibilidades, agendamentos, loadingData, inatividadeSugerida,
       addPaciente, updatePaciente, deletePaciente,
       addAtendimento, updateAtendimento, deleteAtendimento,
       addInteracao, updateInteracao, deleteInteracao,
       addTarefa, concluirTarefa, deleteTarefa, updateTarefa,
       addDisponibilidade, deleteDisponibilidade,
+      addAgendamento, deleteAgendamento,
     }}>
       {children}
     </DataContext.Provider>

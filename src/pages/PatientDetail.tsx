@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Phone, DollarSign, FileText, Edit2, Zap,
   Calendar, Activity, MessageCircle, Copy, Check, AlertTriangle,
-  CheckCircle2, Circle, Trash2, Plus,
+  CheckCircle2, Circle, Trash2, Plus, CalendarClock,
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { Paciente, Atendimento, Interacao, Tarefa, PacienteStatus } from '../types';
@@ -11,6 +11,7 @@ import PacienteModal from '../components/Modals/PacienteModal';
 import AtendimentoModal from '../components/Modals/AtendimentoModal';
 import InteracaoModal from '../components/Modals/InteracaoModal';
 import TarefaModal from '../components/Modals/TarefaModal';
+import AgendamentoPacienteModal from '../components/Modals/AgendamentoPacienteModal';
 import { criarTarefaCrise } from '../services/automations';
 import { useAuth } from '../context/AuthContext';
 
@@ -94,6 +95,7 @@ export default function PatientDetail() {
   const [editingInteracao, setEditingInteracao] = useState<Interacao | undefined>();
   const [showTarefaModal, setShowTarefaModal] = useState(false);
   const [editingTarefa, setEditingTarefa] = useState<Tarefa | undefined>();
+  const [showAgendamentoModal, setShowAgendamentoModal] = useState(false);
 
   const paciente = pacientes.find(p => p.id === id);
   const pacAtendimentos = atendimentos.filter(a => a.pacienteId === id);
@@ -326,6 +328,7 @@ export default function PatientDetail() {
           { label: 'Atendimento', icon: Activity, action: () => { setEditingAtendimento(undefined); setShowAtendimentoModal(true); }, id: 'btn-quick-atendimento' },
           { label: 'Interação', icon: MessageCircle, action: () => { setEditingInteracao(undefined); setShowInteracaoModal(true); }, id: 'btn-quick-interacao' },
           { label: 'Tarefa', icon: Plus, action: () => { setEditingTarefa(undefined); setShowTarefaModal(true); }, id: 'btn-quick-tarefa' },
+          { label: 'Agendamento', icon: CalendarClock, action: () => setShowAgendamentoModal(true), id: 'btn-quick-agendamento' },
         ].map(a => (
           <button key={a.id} id={a.id} className="btn btn-secondary btn-sm" onClick={a.action} style={{ gap: 5 }}>
             <a.icon size={14} /> {a.label}
@@ -529,6 +532,7 @@ export default function PatientDetail() {
       {showAtendimentoModal && <AtendimentoModal onClose={() => { setShowAtendimentoModal(false); setEditingAtendimento(undefined); }} preSelectedPacienteId={id} editingAtendimento={editingAtendimento} />}
       {showInteracaoModal && <InteracaoModal onClose={() => { setShowInteracaoModal(false); setEditingInteracao(undefined); }} preSelectedPacienteId={id} editingInteracao={editingInteracao} />}
       {showTarefaModal && <TarefaModal onClose={() => { setShowTarefaModal(false); setEditingTarefa(undefined); }} preSelectedPacienteId={id} editingTarefa={editingTarefa} />}
+      {showAgendamentoModal && <AgendamentoPacienteModal onClose={() => setShowAgendamentoModal(false)} pacienteId={paciente.id} />}
     </div>
   );
 }
