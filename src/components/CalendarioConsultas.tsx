@@ -17,11 +17,18 @@ function formatBRL(v: number) {
 interface EventoDia {
   pacienteId: string;
   pacienteNome: string;
-  tipo: 'consulta' | 'retornoBreve' | 'futuro';
+  tipo: 'consulta' | 'retornoBreve' | 'futuro' | 'agendamento';
   valor: number;
   label: string;
   atendimentoId: string;
 }
+
+const CORES_EVENTO: Record<EventoDia['tipo'], string> = {
+  consulta: '#34d399',
+  retornoBreve: '#818cf8',
+  futuro: '#fbbf24',
+  agendamento: '#a78bfa',
+};
 
 interface CalendarioConsultasProps {
   modoSelecaoDisponibilidade?: boolean;
@@ -34,7 +41,7 @@ export default function CalendarioConsultas({
   datasSelecionadas = new Set(),
   onToggleDataSelecionada,
 }: CalendarioConsultasProps) {
-  const { atendimentos, pacientes, disponibilidades, deleteDisponibilidade } = useData();
+  const { atendimentos, pacientes, disponibilidades, deleteDisponibilidade, agendamentos } = useData();
   const hoje = new Date();
 
   const [mesSelecionado, setMesSelecionado] = useState(hoje.getMonth());
@@ -82,8 +89,22 @@ export default function CalendarioConsultas({
       }
     });
 
+    // Agendamentos confirmados (com horário)
+    agendamentos.forEach(ag => {
+      const dataAg = new Date(ag.data);
+      const keyAg = `${dataAg.getFullYear()}-${dataAg.getMonth()}-${dataAg.getDate()}`;
+      addEvento(keyAg, {
+        pacienteId: ag.pacienteId,
+        pacienteNome: getPacienteNome(ag.pacienteId),
+        tipo: 'agendamento',
+        valor: 0,
+        label: `Agendado ${ag.horaInicio}–${ag.horaFim}`,
+        atendimentoId: ag.id,
+      });
+    });
+
     return mapa;
-  }, [atendimentos, pacientes]);
+  }, [atendimentos, agendamentos, pacientes]);
 
   // Construir mapa de datas → disponibilidades configuradas
   const disponibilidadesPorDia = useMemo(() => {
@@ -239,6 +260,7 @@ export default function CalendarioConsultas({
             const temConsulta = eventos.some(e => e.tipo === 'consulta');
             const temRetorno = eventos.some(e => e.tipo === 'retornoBreve');
             const temFuturo = eventos.some(e => e.tipo === 'futuro');
+            const temAgendamento = eventos.some(e => e.tipo === 'agendamento');
             const temDisponibilidade = disponibilidadesDoDia.length > 0;
             const isSel = diaSelecionado === item.dia;
             const isToday = isHoje(item.dia);
@@ -300,11 +322,12 @@ export default function CalendarioConsultas({
                   {item.dia}
                 </span>
                 {/* Dots de eventos */}
-                {(temConsulta || temRetorno || temFuturo || temDisponibilidade) && (
+                {(temConsulta || temRetorno || temFuturo || temAgendamento || temDisponibilidade) && (
                   <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: 'center' }}>
                     {temConsulta && <div style={{ width: 6, height: 6, borderRadius: 2, background: '#34d399' }} />}
                     {temRetorno && <div style={{ width: 6, height: 6, borderRadius: 2, background: '#818cf8' }} />}
                     {temFuturo && <div style={{ width: 6, height: 6, borderRadius: 2, background: '#fbbf24' }} />}
+                    {temAgendamento && <div style={{ width: 6, height: 6, borderRadius: 2, background: '#a78bfa' }} />}
                     {temDisponibilidade && <div style={{ width: 6, height: 6, borderRadius: 2, background: '#22d3ee' }} />}
                   </div>
                 )}
@@ -325,6 +348,7 @@ export default function CalendarioConsultas({
             { color: '#34d399', label: 'Consulta realizada' },
             { color: '#818cf8', label: 'Retorno realizado' },
             { color: '#fbbf24', label: 'Retorno previsto' },
+            { color: '#a78bfa', label: 'Agendamento confirmado' },
             { color: '#22d3ee', label: 'Disponibilidade configurada' },
           ].map(item => (
             <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -358,9 +382,11 @@ export default function CalendarioConsultas({
                 <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text)' }}>{ev.pacienteNome}</p>
                 <p style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>{ev.label}</p>
               </div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#34d399', flexShrink: 0 }}>
-                {formatBRL(ev.valor)}
-              </span>
+              {ev.tipo !== 'agendamento' && (
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: CORES_EVENTO[ev.tipo], flexShrink: 0 }}>
+                  {formatBRL(ev.valor)}
+                </span>
+              )}
             </div>
           ))}
           {tooltip.eventos.length > 3 && (
@@ -447,20 +473,22 @@ export default function CalendarioConsultas({
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{
                       width: 8, height: 8, borderRadius: 2, flexShrink: 0,
-                      background: ev.tipo === 'consulta' ? '#34d399' : ev.tipo === 'retornoBreve' ? '#818cf8' : '#fbbf24',
+                      background: CORES_EVENTO[ev.tipo],
                     }} />
                     <div>
                       <p style={{ fontWeight: 600, fontSize: '0.88rem' }}>{ev.pacienteNome}</p>
                       <p style={{ fontSize: '0.75rem', color: 'var(--color-text-dim)' }}>{ev.label}</p>
                     </div>
                   </div>
-                  <span style={{
-                    fontWeight: 700, fontSize: '0.88rem',
-                    color: ev.tipo === 'consulta' ? '#34d399' : ev.tipo === 'retornoBreve' ? '#818cf8' : '#fbbf24',
-                    flexShrink: 0,
-                  }}>
-                    {formatBRL(ev.valor)}
-                  </span>
+                  {ev.tipo !== 'agendamento' && (
+                    <span style={{
+                      fontWeight: 700, fontSize: '0.88rem',
+                      color: CORES_EVENTO[ev.tipo],
+                      flexShrink: 0,
+                    }}>
+                      {formatBRL(ev.valor)}
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>
