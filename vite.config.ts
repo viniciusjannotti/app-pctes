@@ -41,6 +41,11 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // Sem isso, o fallback de navegação do SW intercepta QUALQUER navegação
+        // de página inteira (inclusive o retorno do OAuth do Google pra
+        // /api/google-calendar/callback) e serve o app em cache no lugar,
+        // sem a requisição nunca chegar no servidor.
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
