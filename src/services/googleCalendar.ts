@@ -44,3 +44,44 @@ export async function startGoogleCalendarConnect(): Promise<void> {
 export async function disconnectGoogleCalendar(): Promise<void> {
   await authedFetch('/api/google-calendar/disconnect', { method: 'POST' });
 }
+
+export interface GoogleBusyInterval {
+  start: string;
+  end: string;
+}
+
+export async function getFreeBusy(
+  timeMin: string,
+  timeMax: string,
+): Promise<{ connected: boolean; busy: GoogleBusyInterval[] }> {
+  const res = await authedFetch('/api/google-calendar/freebusy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ timeMin, timeMax }),
+  });
+  return res.json();
+}
+
+export async function createCalendarEvent(params: {
+  agendamentoId: string;
+  titulo: string;
+  startDateTime: string;
+  endDateTime: string;
+  timeZone: string;
+}): Promise<{ googleEventId: string | null }> {
+  const res = await authedFetch('/api/google-calendar/create-event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  return res.json();
+}
+
+export async function deleteCalendarEvent(googleEventId: string): Promise<{ success: boolean }> {
+  const res = await authedFetch('/api/google-calendar/delete-event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ googleEventId }),
+  });
+  return res.json();
+}

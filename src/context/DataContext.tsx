@@ -79,7 +79,7 @@ interface DataContextType {
   deleteDisponibilidade: (id: string) => Promise<void>;
 
   // Agendamentos
-  addAgendamento: (data: Omit<Agendamento, 'id' | 'ownerId' | 'createdAt'>) => Promise<void>;
+  addAgendamento: (data: Omit<Agendamento, 'id' | 'ownerId' | 'createdAt'>) => Promise<string>;
   deleteAgendamento: (id: string) => Promise<void>;
 }
 
@@ -304,13 +304,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ─── Agendamentos ───
-  const addAgendamento = useCallback(async (data: Omit<Agendamento, 'id' | 'ownerId' | 'createdAt'>) => {
+  const addAgendamento = useCallback(async (data: Omit<Agendamento, 'id' | 'ownerId' | 'createdAt'>): Promise<string> => {
     if (!user) throw new Error('Not authenticated');
-    await addDoc(collection(db, 'agendamentos'), {
+    const ref = await addDoc(collection(db, 'agendamentos'), {
       ...data,
       ownerId: user.uid,
       createdAt: serverTimestamp(),
     });
+    return ref.id;
   }, [user]);
 
   const deleteAgendamento = useCallback(async (id: string) => {

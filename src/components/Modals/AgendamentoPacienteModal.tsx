@@ -1,7 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, Trash2, CheckCircle2 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { calcularProximosDiasComHorarios, horaParaMinutos, minutosParaHora } from '../../utils/agendamento';
+import { getFreeBusy, createCalendarEvent, deleteCalendarEvent, GoogleBusyInterval } from '../../services/googleCalendar';
+import { Agendamento } from '../../types';
 
 interface Props {
   onClose: () => void;
@@ -14,14 +16,77 @@ function formatDiaLabel(data: Date): string {
   return `${DIAS_SEMANA_ABREV[data.getDay()]}, ${data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
 }
 
+// Converte os intervalos ocupados do Google (RFC3339, podem atravessar meia-noite)
+// em objetos no formato de Agendamento, recortados por dia — só pra alimentar o
+// cálculo de horários livres, nunca são salvos nem exibidos.
+function busyToSyntheticAgendamentos(busy: GoogleBusyInterval[]): Agendamento[] {
+  const resultado: Agendamento[] = [];
+  busy.forEach((b, i) => {
+    let cursor = new Date(b.start);
+    const fim = new Date(b.end);
+    let seg = 0;
+    while (cursor < fim) {
+      const fimDoDia = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1, 0, 0, 0);
+      const fimSegmento = fim < fimDoDia ? fim : fimDoDia;
+      const diaNoon = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), 12, 0, 0);
+      const minutosInicio = cursor.getHours() * 60 + cursor.getMinutes();
+      const minutosFim = fimSegmento.getTime() === fimDoDia.getTime()
+        ? 24 * 60
+        : fimSegmento.getHours() * 60 + fimSegmento.getMinutes();
+
+      resultado.push({
+        id: `google-busy-${i}-${seg}`,
+        ownerId: '',
+        pacienteId: '',
+        data: diaNoon.toISOString(),
+        horaInicio: minutosParaHora(minutosInicio),
+        horaFim: minutosParaHora(minutosFim),
+        createdAt: '',
+      });
+
+      cursor = fimSegmento;
+      seg++;
+    }
+  });
+  return resultado;
+}
+
 export default function AgendamentoPacienteModal({ onClose, pacienteId }: Props) {
   const { pacientes, disponibilidades, agendamentos, addAgendamento, deleteAgendamento } = useData();
   const [rangeDias, setRangeDias] = useState<30 | 60 | 90>(30);
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [googleBusy, setGoogleBusy] = useState<Agendamento[]>([]);
 
   const paciente = pacientes.find(p => p.id === pacienteId);
+
+  // Busca os horários ocupados no Google Agenda (se conectado) pro intervalo
+  // visível — se não conectado ou der erro, degrada pra "nada ocupado no Google"
+  // sem afetar o resto do cálculo.
+  useEffect(() => {
+    if (!paciente?.duracaoConsulta) {
+      setGoogleBusy([]);
+      return;
+    }
+    let cancelado = false;
+    const hoje = new Date();
+    const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 0, 0, 0);
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate() + rangeDias);
+
+    getFreeBusy(inicio.toISOString(), fim.toISOString())
+      .then(res => {
+        if (cancelado) return;
+        setGoogleBusy(res.connected ? busyToSyntheticAgendamentos(res.busy) : []);
+      })
+      .catch(err => {
+        console.error('Falha ao buscar disponibilidade do Google Agenda:', err);
+        if (!cancelado) setGoogleBusy([]);
+      });
+
+    return () => { cancelado = true; };
+  }, [rangeDias, paciente?.duracaoConsulta]);
 
   const agendamentosDoPaciente = useMemo(() =>
     agendamentos
@@ -35,8 +100,8 @@ export default function AgendamentoPacienteModal({ onClose, pacienteId }: Props)
 
   const dias = useMemo(() => {
     if (!paciente?.duracaoConsulta) return [];
-    return calcularProximosDiasComHorarios(disponibilidades, agendamentos, paciente.duracaoConsulta, rangeDias);
-  }, [disponibilidades, agendamentos, paciente?.duracaoConsulta, rangeDias]);
+    return calcularProximosDiasComHorarios(disponibilidades, [...agendamentos, ...googleBusy], paciente.duracaoConsulta, rangeDias);
+  }, [disponibilidades, agendamentos, googleBusy, paciente?.duracaoConsulta, rangeDias]);
 
   if (!paciente) return null;
 
@@ -47,9 +112,29 @@ export default function AgendamentoPacienteModal({ onClose, pacienteId }: Props)
     setBookingKey(key);
     try {
       const horaFim = minutosParaHora(horaParaMinutos(horaInicio) + paciente.duracaoConsulta);
-      await addAgendamento({ pacienteId, data: data.toISOString(), horaInicio, horaFim });
+      const agendamentoId = await addAgendamento({ pacienteId, data: data.toISOString(), horaInicio, horaFim });
       setSuccessMsg(`Agendamento confirmado para ${data.toLocaleDateString('pt-BR')} às ${horaInicio}.`);
       setTimeout(() => setSuccessMsg(''), 2500);
+
+      // Sincronização com o Google Agenda é best-effort — uma falha aqui não
+      // desfaz nem invalida o agendamento local, que já está confirmado.
+      try {
+        const [h, m] = horaInicio.split(':').map(Number);
+        const [hf, mf] = horaFim.split(':').map(Number);
+        const startDate = new Date(data.getFullYear(), data.getMonth(), data.getDate(), h, m, 0);
+        const endDate = new Date(data.getFullYear(), data.getMonth(), data.getDate(), hf, mf, 0);
+        const iniciais = paciente.nomeExibicao.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        await createCalendarEvent({
+          agendamentoId,
+          titulo: `Consulta - ${iniciais}`,
+          startDateTime: startDate.toISOString(),
+          endDateTime: endDate.toISOString(),
+          timeZone,
+        });
+      } catch (syncErr) {
+        console.error('Falha ao sincronizar com o Google Agenda:', syncErr);
+      }
     } catch (err) {
       console.error(err);
       setError('Não foi possível confirmar o agendamento.');
@@ -58,12 +143,20 @@ export default function AgendamentoPacienteModal({ onClose, pacienteId }: Props)
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (agendamento: Agendamento) => {
     if (!window.confirm('Cancelar este agendamento?')) return;
     try {
-      await deleteAgendamento(id);
+      await deleteAgendamento(agendamento.id);
     } catch (err) {
       console.error(err);
+      return;
+    }
+    if (agendamento.googleEventId) {
+      try {
+        await deleteCalendarEvent(agendamento.googleEventId);
+      } catch (syncErr) {
+        console.error('Falha ao apagar evento do Google Agenda:', syncErr);
+      }
     }
   };
 
@@ -108,7 +201,7 @@ export default function AgendamentoPacienteModal({ onClose, pacienteId }: Props)
                       </span>
                       <button
                         className="btn btn-ghost btn-icon"
-                        onClick={() => handleDelete(a.id)}
+                        onClick={() => handleDelete(a)}
                         style={{ padding: 4 }}
                         id={`btn-cancelar-agendamento-${a.id}`}
                       >

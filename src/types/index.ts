@@ -95,6 +95,7 @@ export interface Agendamento {
   data: string; // ISO date string (meio-dia, mesmo padrão de Disponibilidade)
   horaInicio: string; // "HH:mm"
   horaFim: string; // "HH:mm" — calculado na criação (horaInicio + duracaoConsulta do paciente)
+  googleEventId?: string | null; // id do evento correspondente no Google Agenda, se sincronizado
   createdAt: string;
 }
 
