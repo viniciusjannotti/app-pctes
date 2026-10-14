@@ -12,6 +12,7 @@ import ReceitaMesModal from '../components/Modals/ReceitaMesModal';
 import PacientesAtivosModal from '../components/Modals/PacientesAtivosModal';
 import CobrancasPendentesModal from '../components/Modals/CobrancasPendentesModal';
 import DemandasAbertasModal from '../components/Modals/DemandasAbertasModal';
+import AniversariantesPanel from '../components/AniversariantesPanel';
 
 const prioridadeOrder: Record<TarefaPrioridade, number> = {
   critica: 4, alta: 3, media: 2, baixa: 1,
@@ -170,7 +171,8 @@ export default function Dashboard() {
   const sugestoesInatividade = inatividadeSugerida.filter(p => !dismissedInatividade.includes(p.id));
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto' }}>
+    <div className="dashboard-layout">
+      <div className="dashboard-main">
       <div style={{ marginBottom: 28 }}>
         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
           {hoje.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -389,6 +391,12 @@ export default function Dashboard() {
       {activeModal === 'pacientes' && <PacientesAtivosModal onClose={() => setActiveModal(null)} />}
       {activeModal === 'cobrancas' && <CobrancasPendentesModal onClose={() => setActiveModal(null)} />}
       {activeModal === 'demandas' && <DemandasAbertasModal onClose={() => setActiveModal(null)} />}
+      </div>
+
+      {/* ─── Sidebar: Aniversariantes ─── */}
+      <aside className="dashboard-sidebar">
+        <AniversariantesPanel pacientes={pacientes} />
+      </aside>
     </div>
   );
 }
