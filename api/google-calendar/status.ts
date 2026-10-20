@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getUidFromRequest, UnauthorizedError } from '../_lib/auth.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
+import { getValidAccessToken } from '../_lib/googleCalendarAuth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -8,6 +9,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const snap = await adminDb.collection('googleCalendarIntegrations').doc(uid).get();
 
     if (!snap.exists) {
+      res.status(200).json({ connected: false });
+      return;
+    }
+
+    // Documento existir não basta — o refresh token pode ter expirado do lado
+    // do Google (ex.: limite de 7 dias em modo "Teste") sem que o app saiba.
+    // Só reporta "conectado" se ainda for possível obter um access token válido.
+    const accessToken = await getValidAccessToken(uid);
+    if (!accessToken) {
       res.status(200).json({ connected: false });
       return;
     }
