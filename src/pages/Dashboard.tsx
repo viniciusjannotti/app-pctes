@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   CheckCircle2, Circle, AlertCircle, Users, DollarSign,
   MessageSquare, Plus, ChevronRight, Bell, X, Zap,
+  MoreVertical, Clock, Trash2,
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -46,16 +47,47 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
-function TaskRow({ tarefa, pacienteNome, onConcluir }: {
+const SNOOZE_OPCOES: { label: string; dias: number }[] = [
+  { label: 'Amanhã', dias: 1 },
+  { label: 'Em 3 dias', dias: 3 },
+  { label: 'Próxima semana', dias: 7 },
+];
+
+function TaskRow({ tarefa, pacienteNome, onConcluir, onSnooze, onDelete }: {
   tarefa: Tarefa;
   pacienteNome: string;
   onConcluir: (id: string) => void;
+  onSnooze: (id: string, novaDataISO: string) => void;
+  onDelete: (id: string) => void;
 }) {
   const [concluindo, setConcluindo] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showDataCustom, setShowDataCustom] = useState(false);
 
   const handleConcluir = async () => {
     setConcluindo(true);
     await onConcluir(tarefa.id);
+  };
+
+  const handleSnooze = (dias: number) => {
+    const nova = new Date();
+    nova.setDate(nova.getDate() + dias);
+    nova.setHours(12, 0, 0, 0);
+    onSnooze(tarefa.id, nova.toISOString());
+    setShowMenu(false);
+    setShowDataCustom(false);
+  };
+
+  const handleSnoozeCustom = (valorInput: string) => {
+    if (!valorInput) return;
+    onSnooze(tarefa.id, new Date(valorInput + 'T12:00:00').toISOString());
+    setShowMenu(false);
+    setShowDataCustom(false);
+  };
+
+  const handleExcluir = () => {
+    setShowMenu(false);
+    if (window.confirm('Excluir esta tarefa?')) onDelete(tarefa.id);
   };
 
   return (
@@ -99,10 +131,97 @@ function TaskRow({ tarefa, pacienteNome, onConcluir }: {
         </p>
       </div>
 
-      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
         <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
           {formatDate(tarefa.dataPrevista)}
         </span>
+
+        <div style={{ position: 'relative' }}>
+          <button
+            className="btn btn-ghost btn-icon"
+            onClick={() => { setShowMenu(v => !v); setShowDataCustom(false); }}
+            style={{ padding: 4 }}
+            id={`btn-menu-tarefa-${tarefa.id}`}
+          >
+            <MoreVertical size={16} color="var(--color-text-muted)" />
+          </button>
+
+          {showMenu && (
+            <>
+              <div
+                style={{ position: 'fixed', inset: 0, zIndex: 30 }}
+                onClick={() => { setShowMenu(false); setShowDataCustom(false); }}
+              />
+              <div style={{
+                position: 'absolute', right: 0, top: '110%',
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 12, padding: 8, minWidth: 190, zIndex: 40,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                textAlign: 'left',
+              }}>
+                <p style={{
+                  fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)',
+                  textTransform: 'uppercase', letterSpacing: '0.04em',
+                  padding: '2px 10px 6px',
+                }}>
+                  Me lembre em
+                </p>
+                {SNOOZE_OPCOES.map(op => (
+                  <button
+                    key={op.dias}
+                    className="btn btn-ghost"
+                    style={{ width: '100%', justifyContent: 'flex-start', gap: 8 }}
+                    onClick={() => handleSnooze(op.dias)}
+                    id={`btn-snooze-${tarefa.id}-${op.dias}`}
+                  >
+                    <Clock size={14} /> {op.label}
+                  </button>
+                ))}
+                {showDataCustom ? (
+                  <div style={{ padding: '4px 10px 6px' }}>
+                    <input
+                      type="date"
+                      className="input"
+                      autoFocus
+                      style={{ width: '100%', fontSize: '0.82rem' }}
+                      onChange={e => handleSnoozeCustom(e.target.value)}
+                      id={`input-snooze-custom-${tarefa.id}`}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ width: '100%', justifyContent: 'flex-start', gap: 8 }}
+                    onClick={() => setShowDataCustom(true)}
+                    id={`btn-snooze-custom-${tarefa.id}`}
+                  >
+                    <Clock size={14} /> Escolher data
+                  </button>
+                )}
+
+                <div style={{ borderTop: '1px solid var(--color-border)', margin: '6px 0' }} />
+
+                <button
+                  className="btn btn-ghost"
+                  style={{ width: '100%', justifyContent: 'flex-start', gap: 8 }}
+                  onClick={() => { setShowMenu(false); handleConcluir(); }}
+                  id={`btn-menu-concluir-${tarefa.id}`}
+                >
+                  <CheckCircle2 size={14} /> Concluído
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  style={{ width: '100%', justifyContent: 'flex-start', gap: 8, color: 'var(--color-danger)' }}
+                  onClick={handleExcluir}
+                  id={`btn-menu-excluir-${tarefa.id}`}
+                >
+                  <Trash2 size={14} /> Excluir
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -110,7 +229,7 @@ function TaskRow({ tarefa, pacienteNome, onConcluir }: {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { pacientes, atendimentos, tarefas, concluirTarefa, updatePaciente, inatividadeSugerida } = useData();
+  const { pacientes, atendimentos, tarefas, concluirTarefa, deleteTarefa, updateTarefa, updatePaciente, inatividadeSugerida } = useData();
   const [showTarefaModal, setShowTarefaModal] = useState(false);
   const [dismissedInatividade, setDismissedInatividade] = useState<string[]>([]);
   const [activeModal, setActiveModal] = useState<'receita' | 'pacientes' | 'cobrancas' | 'demandas' | null>(null);
@@ -321,6 +440,8 @@ export default function Dashboard() {
                 tarefa={t}
                 pacienteNome={getPacienteNome(t.pacienteId)}
                 onConcluir={concluirTarefa}
+                onSnooze={(id, novaDataISO) => updateTarefa(id, { dataPrevista: novaDataISO })}
+                onDelete={deleteTarefa}
               />
             ))}
           </div>
@@ -351,6 +472,8 @@ export default function Dashboard() {
               tarefa={t}
               pacienteNome={getPacienteNome(t.pacienteId)}
               onConcluir={concluirTarefa}
+              onSnooze={(id, novaDataISO) => updateTarefa(id, { dataPrevista: novaDataISO })}
+              onDelete={deleteTarefa}
             />
           ))}
           {tarefasAtrasadas.length > 5 && (
